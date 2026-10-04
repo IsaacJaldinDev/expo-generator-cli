@@ -1,0 +1,33 @@
+# Línea gráfica de la exposición.
+# En la fase 6 el agente construye el query de diseño para Canva desde este archivo, con los hex
+# incrustados, porque el brand kit de Canva no garantiza colores exactos.
+
+colors:
+  background: "#F6F7EB"
+  # Contraste medido sobre el background: 3.44:1. Solo pasa WCAG AA para texto grande,
+  # así que se usa en títulos, cifras destacadas y acentos, nunca en texto corrido.
+  primary: "#E94F37"
+  # Contraste 10.0:1: legible a cualquier tamaño desde la última fila. Para cuerpo y script.
+  secondary: "#393E41"
+
+usage:
+  titles: primary
+  body: secondary
+  highlights: primary # una palabra o cifra por slide, no frases completas
+  background: background
+
+# PLACEHOLDER: reemplazar con las fuentes y el mood reales
+fonts:
+  heading: Montserrat
+  body: Inter
+
+sizes: # puntos, pensados para proyector
+  title: 44
+  body: 24
+  minimum: 20
+
+layout:
+  maxWordsPerSlide: 30
+  oneIdeaPerSlide: true
+
+mood: "PLACEHOLDER — p. ej. técnico pero cercano, cálido, minimalista, mucho espacio en blanco"

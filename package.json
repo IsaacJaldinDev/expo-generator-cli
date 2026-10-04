@@ -1,0 +1,35 @@
+{
+  "name": "expo-generator",
+  "version": "1.0.0",
+  "description": "Agente De apuntes a exposicion (AWS Student Community Day)",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "spike:agent": "tsx scripts/spike/agent.ts",
+    "spike:guardrail": "tsx scripts/spike/guardrail.ts",
+    "spike:canva": "tsx scripts/spike/canva.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github-personal:IsaacJaldinDev/expo-generator-cli.git"
+  },
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1146.0",
+    "@aws-sdk/credential-providers": "^3.1146.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@strands-agents/sdk": "^1.19.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

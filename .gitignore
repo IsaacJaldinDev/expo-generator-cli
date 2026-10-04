@@ -1,0 +1,20 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+
+# Credenciales / tokens: nunca al repo
+*.pem
+*.key
+.aws/
+**/canva-tokens*.json
+**/oauth*.json
+
+# Salidas generadas por el agente (los checkpoints y cassettes de demo/ SÍ se versionan)
+output/*
+!output/.gitkeep
+
+.DS_Store
+*.log

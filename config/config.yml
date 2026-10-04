@@ -1,0 +1,62 @@
+# Configuración del agente "De apuntes a exposición".
+# Nada de credenciales aquí: AWS usa el perfil local (AWS_PROFILE sobreescribe aws.profile).
+
+aws:
+  profile: expo-generator
+  region: us-east-2
+
+model:
+  # Cambio de modelo en vivo (Acto 5): edita SOLO esta línea → nova | mistral
+  active: nova
+  options:
+    nova:
+      modelId: us.amazon.nova-2-lite-v1:0
+      # Verificado: cache point manual al final del system prompt (mín. 1K tokens, TTL 5 min, no cachea tools)
+      promptCache: cachepoint
+      maxTokens: 4096
+      temperature: 0.3
+      # USD por 1M tokens. NO VERIFICADO: confirmar en https://aws.amazon.com/bedrock/pricing/ (us-east-2)
+      pricing: { input: 0.3, output: 2.5, cacheRead: 0.075, cacheWrite: 0.0 }
+    mistral:
+      modelId: mistral.mistral-large-3-675b-instruct
+      # Verificado: Bedrock RECHAZA cache points para este modelo
+      promptCache: none
+      maxTokens: 4096
+      temperature: 0.3
+      # NO VERIFICADO: confirmar en https://aws.amazon.com/bedrock/pricing/ (us-east-2)
+      pricing: { input: 0.5, output: 1.5 }
+    # Claude queda disponible si completas el formulario de caso de uso de Anthropic en la consola.
+    claude:
+      modelId: us.anthropic.claude-sonnet-5-5
+      promptCache: auto # el SDK inserta los cache points
+      maxTokens: 4096
+      temperature: 0.3
+      # NO VERIFICADO
+      pricing: { input: 2.0, output: 10.0, cacheRead: 0.2, cacheWrite: 2.5 }
+
+guardrail:
+  enabled: true # actívalo cuando exista el guardrail en tu cuenta
+  id: "d1e4ashg6qe2" # guardrailIdentifier (ID o ARN)
+  version: DRAFT
+  trace: enabled # enabled | enabled_full | disabled
+  # Precio USD por 1000 unidades de texto (página oficial de Bedrock, oct-2026)
+  pricing: { contentFilters: 0.15, deniedTopics: 0.15, sensitiveInfo: 0.10, contextualGrounding: 0.10 }
+
+critic:
+  provider: bedrock # bedrock | ollama (ollama: aún no implementado)
+
+timing:
+  wordsPerMinute: 135
+
+agent:
+  maxRevisionRounds: 2
+  structuredOutputRetries: 1
+
+canva:
+  mcpUrl: https://mcp.canva.com/mcp
+  # Puerto fijo del callback OAuth en 127.0.0.1 (debe coincidir con el redirect registrado)
+  redirectPort: 33418
+  # Tokens OAuth: fuera del repo, permisos 0600
+  tokenDir: ~/.config/expo-generator/canva
+  timeoutMs: 60000
+  fallbackDeckUrl: "" # URL del deck pregenerado de 35 minutos
