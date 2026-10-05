@@ -9,13 +9,13 @@ export const SourcesSchema = z
     search: z.object({ provider: z.enum(['seeds']).default('seeds') }).default({ provider: 'seeds' }),
     limits: z
       .object({
-        maxResearchCalls: z.number().int().positive().default(6),
+        maxResearchCalls: z.number().int().positive().default(8),
         minExternalClaims: z.number().int().min(0).default(3),
         maxExternalClaims: z.number().int().positive().default(5),
         fetchTimeoutMs: z.number().int().positive().default(15000),
         minQuoteChars: z.number().int().positive().default(20),
       })
-      .default({ maxResearchCalls: 6, minExternalClaims: 3, maxExternalClaims: 5, fetchTimeoutMs: 15000, minQuoteChars: 20 }),
+      .default({ maxResearchCalls: 8, minExternalClaims: 3, maxExternalClaims: 5, fetchTimeoutMs: 15000, minQuoteChars: 20 }),
   })
   .superRefine((s, ctx) => {
     for (const [i, seed] of s.seeds.entries()) {

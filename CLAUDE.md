@@ -131,6 +131,18 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
   - Es consultiva: no la exige la compuerta. Tope `critic.maxCalls`. Su uso de tokens suma al costo.
   - Proveedor por config (`critic.provider`, `critic.model`); `ollama` → "no implementado".
 
+## Guardrails en vivo (fase 5)
+
+- 4 escenarios en `demo/scenarios/guardrails/*/scenario.yml` (`kind: knowledge | converse | grounding`), ejecutados
+  por `src/guardrails/scenarios.ts`. Usan el mismo código que el agente (`readKnowledgeGuarded`, el checker, el modelo
+  con `guardrailConfig`) y verifican en código que el guardrail intervino como dice `expect`.
+- **Cassettes** (`src/replay/cassette.ts`): `RecordingModel`/`ReplayModel`, `recordingChecker`/`replayChecker` y
+  `recordingFetcher`/`replayFetcher`. Guardan la latencia real y la reproducen según `replay.speed`. Es la base del
+  record/replay de la fase 7.
+- Contextual grounding en `record_claim` (`checks.grounded`); costo de ApplyGuardrail sumado a la ejecución.
+- `scripts/create-guardrail.ts`: simulación por defecto; solo crea con `--yes`.
+- `npm run guardrails:check` mide la tasa de disparo; es candidato para el preflight.
+
 ## CLI de demo (fase 4)
 
 - `npm run demo -- <acto>` (`src/cli/demo.tsx`, Ink 8 + React 19). Un comando por acto:
@@ -142,7 +154,7 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
   | `plan` | 3 | Etapa deck; conserva `claims.json` |
   | `edit "…"` | 4 | Edición con diff |
   | `bedrock` | 5 | Costo por modelo + la línea de config a cambiar |
-  | `guardrails` | 6 | — |
+  | `guardrails [esc|all]` | 6 | Escenarios de Bedrock Guardrails (`--record`/`--replay`) |
   | `canva` | 7 | — |
   | `full` | 2 + 3 | — |
 

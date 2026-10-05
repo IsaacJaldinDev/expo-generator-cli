@@ -48,6 +48,12 @@ critic:
   model: ""
   maxCalls: 2 # llamadas a critique_voice por ejecución
 
+replay:
+  # Velocidad del replay: 1 = latencias reales grabadas; 2 = el doble de rápido; 0 = instantáneo.
+  speed: 1
+  # Retraso entre eventos de streaming del modelo al reproducir (ms): que se vea natural, no instantáneo.
+  eventDelayMs: 12
+
 voice:
   maxSentenceWords: 30 # más largo → aviso (no se dice en una respiración)
   maxTriadsPerSection: 1

@@ -43,6 +43,9 @@ export const ConfigSchema = z
       model: z.string().default(''),
       maxCalls: z.number().int().min(0).default(2),
     }),
+    replay: z
+      .object({ speed: z.number().min(0).default(1), eventDelayMs: z.number().int().min(0).default(12) })
+      .default({ speed: 1, eventDelayMs: 12 }),
     voice: z
       .object({
         maxSentenceWords: z.number().int().positive().default(30),

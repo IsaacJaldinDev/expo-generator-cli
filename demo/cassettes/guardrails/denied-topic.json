@@ -1,0 +1,105 @@
+{
+ "version": 1,
+ "name": "denied-topic",
+ "recordedAt": "2026-10-05T03:57:05.674Z",
+ "model": {
+  "calls": [
+   [
+    {
+     "type": "modelMessageStartEvent",
+     "role": "assistant"
+    },
+    {
+     "type": "modelContentBlockDeltaEvent",
+     "delta": {
+      "type": "textDelta",
+      "text": ""
+     }
+    },
+    {
+     "type": "modelContentBlockDeltaEvent",
+     "delta": {
+      "type": "textDelta",
+      "text": "🛡 Bedrock Guardrails bloqueó esta solicitud. sorry bro"
+     }
+    },
+    {
+     "type": "modelContentBlockStopEvent"
+    },
+    {
+     "type": "modelMessageStopEvent",
+     "stopReason": "guardrailIntervened"
+    },
+    {
+     "type": "modelRedactionEvent",
+     "inputRedaction": {
+      "replaceContent": "[User input redacted.]"
+     }
+    },
+    {
+     "type": "modelMetadataEvent",
+     "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "totalTokens": 0
+     },
+     "metrics": {
+      "latencyMs": 565
+     },
+     "trace": {
+      "guardrail": {
+       "inputAssessment": {
+        "d1e4ashg6qe2": {
+         "topicPolicy": {
+          "topics": [
+           {
+            "name": "Citas inventadas",
+            "type": "DENY",
+            "action": "BLOCKED",
+            "detected": true
+           }
+          ]
+         },
+         "invocationMetrics": {
+          "guardrailProcessingLatency": 436,
+          "usage": {
+           "topicPolicyUnits": 1,
+           "contentPolicyUnits": 1,
+           "wordPolicyUnits": 1,
+           "sensitiveInformationPolicyUnits": 1,
+           "sensitiveInformationPolicyFreeUnits": 0,
+           "contextualGroundingPolicyUnits": 0,
+           "automatedReasoningPolicyUnits": 0,
+           "automatedReasoningPolicies": 0
+          },
+          "guardrailCoverage": {
+           "textCharacters": {
+            "guarded": 131,
+            "total": 3891
+           }
+          }
+         },
+         "appliedGuardrailDetails": {
+          "guardrailId": "d1e4ashg6qe2",
+          "guardrailVersion": "DRAFT",
+          "guardrailArn": "arn:aws:bedrock:us-east-2:111269075143:guardrail/d1e4ashg6qe2",
+          "guardrailOrigin": [
+           "REQUEST"
+          ],
+          "guardrailOwnership": "SELF"
+         }
+        }
+       },
+       "actionReason": "Guardrail blocked."
+      }
+     }
+    }
+   ]
+  ],
+  "ms": [
+   2190
+  ]
+ },
+ "guardrail": [],
+ "pages": []
+}

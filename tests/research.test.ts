@@ -170,7 +170,7 @@ describe('acto 2: huecos → research → record_claim (por pasaje) → claims.j
 
   it('topes en código: máximo de búsquedas por ejecución', async () => {
     const q = call('research', { claim: 'x', query: 'USB-C port' });
-    const { trace } = await run([q, q, q, q, q, q, q]);
-    expect(trace).toEqual(['research', 'research', 'research', 'research', 'research', 'research', 'research ✗']);
+    const { trace } = await run([q, q, q, q, q, q, q, q, q]);
+    expect(trace).toEqual([...Array(8).fill('research'), 'research ✗']);
   });
 });

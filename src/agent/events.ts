@@ -16,6 +16,8 @@ export type TraceEvent =
   | { kind: 'validation'; round: number; ok: boolean; problems: string[] }
   | { kind: 'structured-output'; ok: boolean; attempt: number; error?: string }
   | { kind: 'info'; message: string }
+  /** Costo de una evaluación de ApplyGuardrail (se suma al costo de la ejecución). */
+  | { kind: 'guardrail-usage'; costUsd: number }
   | { kind: 'stage-start'; stage: 'research' | 'deck'; title: string }
   | {
       kind: 'stage-end';

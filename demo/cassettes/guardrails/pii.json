@@ -1,0 +1,38 @@
+{
+ "version": 1,
+ "name": "pii",
+ "recordedAt": "2026-10-05T03:57:13.778Z",
+ "model": {
+  "calls": []
+ },
+ "guardrail": [
+  {
+   "key": "62ba40536827a961",
+   "op": "check",
+   "ms": 1948,
+   "result": {
+    "intervened": true,
+    "text": "<!-- PLACEHOLDER: apuntes con datos personales sembrados a propósito para la demo. -->\n# Agradecimientos\n\nGracias a Ana Pérez por revisar las slides. Si tienen dudas sobre el taller, escríbanle a {EMAIL} o al {PHONE}.\n\n# Qué es MCP\n\nMCP es un protocolo abierto que conecta asistentes de IA con herramientas.\n",
+    "blocked": false,
+    "interventions": [
+     {
+      "source": "input",
+      "policy": "datos-sensibles",
+      "detail": "EMAIL",
+      "action": "ANONYMIZED",
+      "match": "ana.perez@ejemplo.edu"
+     },
+     {
+      "source": "input",
+      "policy": "datos-sensibles",
+      "detail": "PHONE",
+      "action": "ANONYMIZED",
+      "match": "+591 71234567"
+     }
+    ],
+    "costUsd": 0.00039999999999999996
+   }
+  }
+ ],
+ "pages": []
+}

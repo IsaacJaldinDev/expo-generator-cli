@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
+import type { TraceSink } from '../agent/events.ts';
+import type { GuardrailChecker } from '../guardrails/apply.ts';
 import type { ToolDeps } from './deps.ts';
 
 export interface KnowledgeFragment {
@@ -35,6 +37,36 @@ export function loadKnowledgeFragments(dir: string): KnowledgeFragment[] {
     .flatMap((f) => fragmentMarkdown(basename(f, '.md'), readFileSync(join(dir, f), 'utf8')));
 }
 
+/**
+ * Lee knowledge/*.md pasando cada archivo por ApplyGuardrail (INPUT): Converse no evalúa resultados de
+ * herramientas, así que los apuntes se revisan aquí. Los bloqueados se excluyen; los enmascarados llegan enmascarados.
+ */
+export async function readKnowledgeGuarded(
+  dir: string,
+  checker: GuardrailChecker | undefined,
+  sink: TraceSink,
+): Promise<{ files: string[]; fragments: KnowledgeFragment[]; blocked: string[] }> {
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith('.md'))
+    .sort();
+  const results = await Promise.all(
+    files.map(async (file) => {
+      const raw = readFileSync(join(dir, file), 'utf8');
+      if (!checker) return { file, text: raw, blocked: false };
+      const r = await checker.check(raw, 'input');
+      if (r.interventions.length) sink({ kind: 'guardrail', via: 'apply-guardrail', interventions: r.interventions });
+      return { file, text: r.text, blocked: r.blocked };
+    }),
+  );
+  const blocked: string[] = [];
+  const fragments: KnowledgeFragment[] = [];
+  for (const r of results) {
+    if (r.blocked) blocked.push(r.file);
+    else fragments.push(...fragmentMarkdown(basename(r.file, '.md'), r.text));
+  }
+  return { files, fragments, blocked };
+}
+
 export function readKnowledgeTool(deps: ToolDeps) {
   return tool({
     name: 'read_knowledge',
@@ -43,27 +75,7 @@ export function readKnowledgeTool(deps: ToolDeps) {
       'Los apuntes pasan por Bedrock Guardrails antes de llegar a ti.',
     inputSchema: z.object({}),
     callback: async () => {
-      const files = readdirSync(deps.knowledgeDir)
-        .filter((f) => f.endsWith('.md'))
-        .sort();
-      const blocked: string[] = [];
-      const fragments: KnowledgeFragment[] = [];
-
-      const results = await Promise.all(
-        files.map(async (file) => {
-          const raw = readFileSync(join(deps.knowledgeDir, file), 'utf8');
-          if (!deps.checker) return { file, text: raw, blocked: false };
-          // Converse no evalúa resultados de herramientas: los apuntes se revisan aquí como INPUT.
-          const r = await deps.checker.check(raw, 'input');
-          if (r.interventions.length) deps.sink({ kind: 'guardrail', via: 'apply-guardrail', interventions: r.interventions });
-          return { file, text: r.text, blocked: r.blocked };
-        }),
-      );
-
-      for (const r of results) {
-        if (r.blocked) blocked.push(r.file);
-        else fragments.push(...fragmentMarkdown(basename(r.file, '.md'), r.text));
-      }
+      const { files, fragments, blocked } = await readKnowledgeGuarded(deps.knowledgeDir, deps.checker, deps.sink);
       // Solo los fragmentos que pasaron el guardrail pueden citarse como procedencia de autor.
       deps.store.setKnowledge(fragments);
       return {

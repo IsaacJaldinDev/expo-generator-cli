@@ -41,8 +41,8 @@ search:
   provider: seeds
 
 limits:
-  maxResearchCalls: 6 # por ejecución
+  maxResearchCalls: 8 # por ejecución (el grounding rechaza algunos claims: hace falta margen)
   minExternalClaims: 3 # validate_deck exige que el script cite al menos estos claims externos verificados
-  maxExternalClaims: 5 # el agente investiga solo los huecos: 3–5 claims
+  maxExternalClaims: 5 # verificados como máximo: el agente investiga solo los huecos (3–5 claims)
   fetchTimeoutMs: 15000
   minQuoteChars: 20 # un fragmento citado más corto no prueba nada

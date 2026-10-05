@@ -1,0 +1,61 @@
+{
+ "version": 1,
+ "name": "grounding",
+ "recordedAt": "2026-10-05T03:57:09.887Z",
+ "model": {
+  "calls": []
+ },
+ "guardrail": [
+  {
+   "key": "83977c83bd95d672",
+   "op": "ground",
+   "ms": 1974,
+   "result": {
+    "grounded": true,
+    "groundingScore": 0.99,
+    "relevanceScore": 0.95,
+    "interventions": [],
+    "costUsd": 0.00035
+   }
+  },
+  {
+   "key": "a2932a45c85c4da7",
+   "op": "ground",
+   "ms": 1235,
+   "result": {
+    "grounded": false,
+    "groundingScore": 0,
+    "relevanceScore": 0.01,
+    "interventions": [
+     {
+      "source": "output",
+      "policy": "grounding",
+      "detail": "GROUNDING (score 0 < umbral 0.75)",
+      "action": "BLOCKED"
+     }
+    ],
+    "costUsd": 0.00035
+   }
+  },
+  {
+   "key": "4ef535a9d3c1b971",
+   "op": "ground",
+   "ms": 993,
+   "result": {
+    "grounded": false,
+    "groundingScore": 0,
+    "relevanceScore": 0.06,
+    "interventions": [
+     {
+      "source": "output",
+      "policy": "grounding",
+      "detail": "GROUNDING (score 0 < umbral 0.75)",
+      "action": "BLOCKED"
+     }
+    ],
+    "costUsd": 0.00035
+   }
+  }
+ ],
+ "pages": []
+}

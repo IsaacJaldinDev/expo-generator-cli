@@ -1,0 +1,30 @@
+{
+ "version": 1,
+ "name": "injection",
+ "recordedAt": "2026-10-05T03:57:11.820Z",
+ "model": {
+  "calls": []
+ },
+ "guardrail": [
+  {
+   "key": "38e54c1cd2ce9fca",
+   "op": "check",
+   "ms": 1923,
+   "result": {
+    "intervened": true,
+    "text": "🛡 Bedrock Guardrails bloqueó esta solicitud. sorry bro",
+    "blocked": true,
+    "interventions": [
+     {
+      "source": "input",
+      "policy": "prompt-attack",
+      "detail": "PROMPT_ATTACK (confianza MEDIUM)",
+      "action": "BLOCKED"
+     }
+    ],
+    "costUsd": 0.00039999999999999996
+   }
+  }
+ ],
+ "pages": []
+}

@@ -1,13 +1,13 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { StructuredOutputError, type AgentResult } from '@strands-agents/sdk';
+import { StructuredOutputError, type AgentResult, type Model } from '@strands-agents/sdk';
 import { buildUserMessage, createExpoAgent, STAGE_INSTRUCTIONS, type RunSummary } from '../agent/agent.ts';
 import { addUsage, emptyUsage, estimateCostUsd } from '../agent/cost.ts';
 import { DeckStore } from '../agent/deck-store.ts';
 import type { TraceEvent, TraceSink, UsageTotals } from '../agent/events.ts';
 import { deckParams } from '../agent/params.ts';
 import { buildSystemPrompt } from '../agent/system-prompt.ts';
-import { createGuardrailChecker } from '../guardrails/apply.ts';
+import { createGuardrailChecker, withCostTracking, type GuardrailChecker } from '../guardrails/apply.ts';
 import { cachedSystemPrompt, createAgentModel } from '../providers/bedrock.ts';
 import { buildRubric, createCritic } from '../providers/critic.ts';
 import { httpFetcher } from '../research/pages.ts';
@@ -40,6 +40,9 @@ export interface SessionOptions {
   stages?: Stage[];
   /** Etiqueta del acto para runs.jsonl. */
   act: string;
+  /** Envoltorios para grabar o reproducir (cassettes). */
+  wrapModel?: (m: Model) => Model;
+  wrapChecker?: (c: GuardrailChecker) => GuardrailChecker;
   sink: TraceSink;
 }
 
@@ -65,6 +68,8 @@ export interface Session {
   deckBefore: Deck;
   isEdit: boolean;
   usage(): UsageTotals;
+  /** Costo acumulado de ApplyGuardrail en esta sesión. */
+  guardrailUsd(): number;
   run(): Promise<SessionOutcome>;
 }
 
@@ -102,13 +107,20 @@ export function createSession(opts: SessionOptions): Session {
   const deckBefore = structuredClone(store.deck);
 
   let usage = emptyUsage();
+  let guardrailUsd = 0;
   const sink = (e: TraceEvent) => {
     if (e.kind === 'model-call' && e.usage) usage = addUsage(usage, e.usage);
+    if (e.kind === 'guardrail-usage') guardrailUsd += e.costUsd;
     opts.sink(e);
   };
+  const checker: GuardrailChecker | undefined = cfg.guardrail.enabled
+    ? withCostTracking(opts.wrapChecker ? opts.wrapChecker(createGuardrailChecker(cfg)) : createGuardrailChecker(cfg), (costUsd) =>
+        sink({ kind: 'guardrail-usage', costUsd }),
+      )
+    : undefined;
 
   const { agent, abort, gate, invokeOptions } = createExpoAgent({
-    model: createAgentModel(cfg),
+    model: opts.wrapModel ? opts.wrapModel(createAgentModel(cfg)) : createAgentModel(cfg),
     systemPrompt: cachedSystemPrompt(cfg, buildSystemPrompt(brief, params)),
     store,
     params,
@@ -118,7 +130,7 @@ export function createSession(opts: SessionOptions): Session {
     critic: { provider: critic, maxCalls: cfg.critic.maxCalls },
     stage,
     sink,
-    ...(cfg.guardrail.enabled ? { checker: createGuardrailChecker(cfg) } : {}),
+    ...(checker ? { checker } : {}),
     maxRevisionRounds: cfg.agent.maxRevisionRounds,
     structuredOutputRetries: cfg.agent.structuredOutputRetries,
     maxTurns: cfg.agent.maxTurns,
@@ -176,6 +188,7 @@ export function createSession(opts: SessionOptions): Session {
     deckBefore,
     isEdit,
     usage: () => usage,
+    guardrailUsd: () => guardrailUsd,
     async run() {
       const t0 = performance.now();
       const done: SessionOutcome['stages'] = [];
@@ -192,7 +205,7 @@ export function createSession(opts: SessionOptions): Session {
       store.save(outputDir, params);
       const validation = validateDeck(store.deck, store.claims, params);
       const seconds = (performance.now() - t0) / 1000;
-      const costUsd = estimateCostUsd(usage, model.pricing);
+      const costUsd = estimateCostUsd(usage, model.pricing) + guardrailUsd;
       const ok = !error && done.length === stages.length && done.every((d) => d.ok);
       recordRun(outputDir, { at: new Date().toISOString(), act: opts.act, model: model.key, modelId: model.modelId, seconds, stages: done, usage, costUsd, ok });
       return { ok, seconds, stages: done, ...(error ? { error } : {}), validation, usage, costUsd };

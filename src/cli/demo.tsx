@@ -5,7 +5,7 @@
  *   npm run demo -- plan                       # 3 · plan y validación (con los claims del acto 2)
  *   npm run demo -- edit "Haz el inicio más provocador"   # 4 · edición conversacional + diff
  *   npm run demo -- bedrock                    # 5 · costo y cambio de modelo
- *   npm run demo -- guardrails <escenario>     # 6 · (fase 5)
+ *   npm run demo -- guardrails [escenario|all] # 6 · Bedrock Guardrails (--record / --replay)
  *   npm run demo -- canva                      # 7 · (fase 6)
  *   npm run demo -- full                       # 2 + 3 seguidos
  * Flags: --no-guardrail · --scope=hook,cierre
@@ -17,6 +17,9 @@ import { activeModel, loadConfig } from '../schemas/config.ts';
 import { loadKnowledgeFragments } from '../tools/read-knowledge.ts';
 import { BriefView, CostView, Header } from './ui/components.tsx';
 import { createEventBus, RunApp, type ResultPanel } from './ui/RunApp.tsx';
+import { ScenarioApp } from './ui/ScenarioApp.tsx';
+import { listScenarios } from '../guardrails/scenarios.ts';
+import type { RunMode } from '../guardrails/scenario-context.ts';
 import { createSession, loadRuns, type SessionOptions, type SessionOutcome } from './session.ts';
 
 const ALIASES: Record<string, string> = { '1': 'brief', '2': 'research', '3': 'plan', '4': 'edit', '5': 'bedrock', '6': 'guardrails', '7': 'canva' };
@@ -98,16 +101,24 @@ switch (act) {
     );
     break;
   }
-  case 'guardrails':
+  case 'guardrails': {
+    const names = !rest || rest === 'all' ? listScenarios() : rest.split(/[\s,]+/);
+    const mode: RunMode = args.includes('--record') ? 'record' : args.includes('--replay') ? 'replay' : 'live';
+    let ok = false;
+    const app = render(<ScenarioApp cfg={loadConfig()} names={names} mode={mode} onDone={(v) => (ok = v)} />, { exitOnCtrlC: true });
+    await app.waitUntilExit();
+    if (!ok) process.exitCode = 1;
+    break;
+  }
   case 'canva':
-    await show(<Text color="yellow">{`El acto "${act}" llega en la fase ${act === 'guardrails' ? 5 : 6}.`}</Text>);
+    await show(<Text color="yellow">El acto "canva" llega en la fase 6.</Text>);
     break;
   default:
     await show(
       <Box flexDirection="column">
         <Text bold>npm run demo -- {'<acto>'}</Text>
         <Text>  brief · research · plan · edit "instrucción" · bedrock · guardrails · canva · full</Text>
-        <Text dimColor>  (o 1–7) · flags: --no-guardrail --scope=hook,cierre</Text>
+        <Text dimColor>  (o 1–7) · flags: --no-guardrail --scope=hook,cierre · guardrails: --record --replay</Text>
       </Box>,
     );
 }

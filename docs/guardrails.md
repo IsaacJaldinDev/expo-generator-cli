@@ -58,13 +58,47 @@ Fuente: https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-conv
 
 Fuente: https://aws.amazon.com/bedrock/pricing/
 
-## Probarlo
+## Crearlo con código (opcional)
 
 ```bash
-npm run spike:guardrail
+npm run guardrail:create            # simulación: imprime la configuración, no crea nada
+npm run guardrail:create -- --yes   # lo crea con tu perfil; nunca se ejecuta solo
 ```
 
-Corre los tres escenarios con `ApplyGuardrail`, y el tema denegado también por Converse.
+La configuración del script es la recomendada. **Diferencia con la de arriba:** el tema "Citas inventadas"
+evalúa solo INPUT. En OUTPUT daba falsos positivos en el flujo normal (bloqueó una respuesta del modelo con
+frases como "la documentación lo compara con…"). Las citas inventadas en la salida las atrapa el grounding.
+
+## Escenarios del Acto 6 (`demo/scenarios/guardrails/`)
+
+| Escenario | Vía | Espera | Medido en vivo |
+|---|---|---|---|
+| `injection` | `read_knowledge` → ApplyGuardrail INPUT | prompt-attack BLOCKED (el archivo no llega al modelo) | 5/5 |
+| `pii` | `read_knowledge` → ApplyGuardrail INPUT | EMAIL/PHONE ANONYMIZED (el modelo ve `{EMAIL}`) | 5/5 |
+| `denied-topic` | Converse + `guardrailConfig` | tema-denegado BLOCKED (0 tokens: el modelo no se invoca) | 5/5 |
+| `grounding` | ApplyGuardrail con qualifiers (pasaje del claim = fuente) | respaldada 0.99 ✓, cita inventada 0.00 ✗, dato falso 0.00 ✗ | 5/5 |
+
+```bash
+npm run demo -- guardrails all              # en vivo, vista Ink
+npm run demo -- guardrails pii --replay     # desde el cassette, sin red, con la latencia real
+npm run guardrails:check -- --times=10      # tasa de disparo (criterio: 100%)
+npm run guardrails:check -- --record        # regraba los 4 cassettes (demo/cassettes/guardrails/)
+```
+
+- Cada escenario verifica **en código** que el guardrail intervino con la política y la acción esperadas.
+- Los cassettes guardan las respuestas de ApplyGuardrail y los eventos de Converse con su latencia real.
+  `replay.speed` en `config.yml` acelera o frena la reproducción.
+
+## Grounding dentro del agente
+
+`record_claim` ahora llama al contextual grounding: el pasaje es la fuente y la afirmación (en español) es el
+contenido. `verified` exige, además de que la cita exista y las cifras coincidan, que Bedrock confirme el respaldo
+(`checks.grounded`, `checks.groundingScore` en `claims.json`). Funciona con español frente a inglés y es determinista
+(los mismos puntajes en cada repetición). En real rechazó afirmaciones exageradas: "AWS Bedrock ya integra MCP
+para…" sacó 0.68 y 0.56.
+
+El costo de cada ApplyGuardrail (unidades de texto × `guardrail.pricing`) se suma al costo de la ejecución.
+El de Converse aún no.
 
 ## Estado real del guardrail `d1e4ashg6qe2` (fase 0, 2026-10-04)
 

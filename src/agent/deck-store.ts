@@ -59,7 +59,7 @@ export class DeckStore {
     sourceTier: string;
     quote: string;
     verified: boolean;
-    checks: { quoteFound: boolean; numbersMatch: boolean };
+    checks: { quoteFound: boolean; numbersMatch: boolean; grounded?: boolean; groundingScore?: number };
   }): Claim {
     const n = this.claims.filter((x) => x.origin === 'external').length + 1;
     let id = `c-${n}`;

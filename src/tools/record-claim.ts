@@ -21,9 +21,10 @@ export function recordClaimTool(deps: ToolDeps) {
       const passage = library.passage(passageId);
       if (!passage) return { ok: false, error: `No existe el pasaje "${passageId}": usa un id devuelto por research.` };
 
-      const external = deps.store.claims.filter((c) => c.origin === 'external').length;
-      if (external >= sources.limits.maxExternalClaims) {
-        return { ok: false, error: `Ya hay ${external} claims externos (máximo ${sources.limits.maxExternalClaims}).` };
+      // El tope cuenta solo los verificados: un claim rechazado no debe consumir cupo (el de búsquedas ya acota los intentos).
+      const verifiedCount = deps.store.claims.filter((c) => c.origin === 'external' && c.verified).length;
+      if (verifiedCount >= sources.limits.maxExternalClaims) {
+        return { ok: false, error: `Ya hay ${verifiedCount} claims externos verificados (máximo ${sources.limits.maxExternalClaims}).` };
       }
 
       const quote = passage.text;
@@ -38,8 +39,21 @@ export function recordClaimTool(deps: ToolDeps) {
       }
       const missing = missingNumbers(text, quote);
       if (missing.length) reasons.push(`El pasaje no contiene las cifras ${missing.join(', ')} de la afirmación: no la respalda.`);
-      const checks = { quoteFound, numbersMatch: missing.length === 0 };
-      const verified = checks.quoteFound && checks.numbersMatch;
+      const checks: { quoteFound: boolean; numbersMatch: boolean; grounded?: boolean; groundingScore?: number } = {
+        quoteFound,
+        numbersMatch: missing.length === 0,
+      };
+      // Contextual grounding (Bedrock Guardrails): ¿el pasaje respalda semánticamente la afirmación?
+      if (deps.checker && quoteFound && checks.numbersMatch) {
+        const g = await deps.checker.ground({ source: quote, query: text, content: text });
+        checks.grounded = g.grounded;
+        if (g.groundingScore !== undefined) checks.groundingScore = g.groundingScore;
+        if (!g.grounded) {
+          deps.sink({ kind: 'guardrail', via: 'apply-guardrail', interventions: g.interventions });
+          reasons.push(`Bedrock Guardrails: el pasaje no respalda la afirmación (grounding ${g.groundingScore?.toFixed(2) ?? '?'}).`);
+        }
+      }
+      const verified = checks.quoteFound && checks.numbersMatch && checks.grounded !== false;
 
       const claim = deps.store.addExternalClaim({ text, sourceUrl: passage.url, sourceTier: passage.tier, quote, verified, checks });
       deps.store.save(deps.outputDir, deps.params);
@@ -48,7 +62,9 @@ export function recordClaimTool(deps: ToolDeps) {
         id: claim.id,
         verified,
         sourceTier: passage.tier,
-        reason: verified ? 'El pasaje está en la fuente y contiene las cifras de la afirmación.' : reasons.join(' '),
+        reason: verified
+          ? `El pasaje está en la fuente y respalda la afirmación${checks.groundingScore !== undefined ? ` (grounding ${checks.groundingScore.toFixed(2)})` : ''}.`
+          : reasons.join(' '),
         ...(verified
           ? { cite: `Cítalo en el script al final de la oración: [^${claim.id}]` }
           : { warning: 'Un claim sin verificar NO se puede citar: validate_deck lo rechazará. No uses esa afirmación.' }),

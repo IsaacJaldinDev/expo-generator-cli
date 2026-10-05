@@ -20,7 +20,15 @@ export const ClaimSchema = z
     quote: z.string().optional(),
     verified: z.boolean(),
     /** Detalle de las comprobaciones en código que producen `verified` (claims externos). */
-    checks: z.object({ quoteFound: z.boolean(), numbersMatch: z.boolean() }).optional(),
+    checks: z
+      .object({
+        quoteFound: z.boolean(),
+        numbersMatch: z.boolean(),
+        /** Contextual grounding de Bedrock Guardrails: el pasaje respalda la afirmación (si el guardrail está activo). */
+        grounded: z.boolean().optional(),
+        groundingScore: z.number().optional(),
+      })
+      .optional(),
     retrievedAt: z.string().optional(),
   })
   .refine((c) => c.origin === 'author' || !!c.sourceUrl, {

@@ -60,7 +60,7 @@ export function RunApp(props: { bus: EventBus; session: Session; act: string; ti
 
   const usage = outcome?.usage ?? session.usage();
   const seconds = outcome?.seconds ?? time / 1000;
-  const costUsd = outcome?.costUsd ?? estimateCostUsd(usage, session.model.pricing);
+  const costUsd = outcome?.costUsd ?? estimateCostUsd(usage, session.model.pricing) + session.guardrailUsd();
 
   return (
     <Box flexDirection="column">
