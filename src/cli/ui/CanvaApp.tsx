@@ -44,6 +44,8 @@ export function OutlineView({ input }: { input: CanvaDesignInput }) {
 export function CanvaApp(props: {
   brand: BrandGuide;
   input: CanvaDesignInput;
+  /** Título del diseño en Canva: el nombre de la exposición. */
+  title: string;
   mode: string;
   fallbackUrl: string;
   run: (sink: (e: TraceEvent) => void) => Promise<CanvaResult>;
@@ -68,7 +70,7 @@ export function CanvaApp(props: {
 
   return (
     <Box flexDirection="column">
-      <Header act="ACTO 7" title="Canva vía MCP" subtitle={`deck.json + brand-guide.yml → create-design (outline) · ${props.mode}`} />
+      <Header act="ACTO 7" title="Canva vía MCP" subtitle={`deck.json + guía visual → create-design (outline) · «${props.title}» · ${props.mode}`} />
       <Palette brand={props.brand} />
       <OutlineView input={props.input} />
       <TraceView rows={rows} maxRows={10} />
@@ -76,6 +78,7 @@ export function CanvaApp(props: {
         <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor="green" paddingX={1}>
           <Text bold color="green">{`✓ ${result.pages ?? '?'} slides generadas en ${result.seconds.toFixed(0)} s`}</Text>
           <Text bold>{result.url ?? result.editUrl}</Text>
+          {result.title ? <Text dimColor>{`título en Canva: ${result.title}`}</Text> : <Text color="yellow">{`⚠ no se pudo titular el diseño como «${props.title}»`}</Text>}
         </Box>
       )}
       {result && !result.ok && (

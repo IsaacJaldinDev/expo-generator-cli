@@ -8,7 +8,7 @@ import type { TraceEvent } from '../src/agent/events.ts';
 import { STRUCTURED_OUTPUT_TOOL } from '../src/agent/hooks.ts';
 import { ScriptedModel, type ScriptedTurn } from '../src/replay/scripted-model.ts';
 import { SourceLibrary } from '../src/research/search.ts';
-import { params, sources, words } from './fixtures.ts';
+import { params, sources, words, notesDeps } from './fixtures.ts';
 
 const slide = (n: number, script = words(n)) => ({ title: 'Título', purpose: 'Un propósito claro aquí', bullets: ['Idea'], script });
 const call = (name: string, input: unknown = {}) => ({ toolUses: [{ name, input }] });
@@ -30,6 +30,7 @@ function setup(turns: ScriptedTurn[], store = new DeckStore({ title: 'Charla', s
     knowledgeDir,
     research: { sources, library: new SourceLibrary(sources, async () => '<p>No pages in this test.</p>') },
     stage: { current: 'deck' },
+    ...notesDeps(),
     sink: (e) => events.push(e),
     maxRevisionRounds: 2,
     structuredOutputRetries: 1,

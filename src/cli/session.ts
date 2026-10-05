@@ -1,10 +1,11 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { StructuredOutputError, type AgentResult, type Model } from '@strands-agents/sdk';
 import { buildUserMessage, createExpoAgent, STAGE_INSTRUCTIONS, type RunSummary } from '../agent/agent.ts';
 import { addUsage, emptyUsage, estimateCostUsd } from '../agent/cost.ts';
 import { DeckStore } from '../agent/deck-store.ts';
 import type { TraceEvent, TraceSink, UsageTotals } from '../agent/events.ts';
+import { NOTES_REVIEW_JSON, NOTES_REVIEW_MD, notesGate, NotesReview, VALID_NOTES_DIR } from '../agent/notes-review.ts';
 import { deckParams } from '../agent/params.ts';
 import { buildSystemPrompt } from '../agent/system-prompt.ts';
 import { createGuardrailChecker, withCostTracking, type GuardrailChecker } from '../guardrails/apply.ts';
@@ -12,11 +13,11 @@ import { cachedSystemPrompt, createAgentModel } from '../providers/bedrock.ts';
 import { buildRubric, createCritic } from '../providers/critic.ts';
 import { httpFetcher } from '../research/pages.ts';
 import { SourceLibrary } from '../research/search.ts';
-import { loadBrandGuide } from '../schemas/brand.ts';
-import { loadBrief, type Brief } from '../schemas/brief.ts';
+import type { Brief } from '../schemas/brief.ts';
 import { activeModel, loadConfig, type Config, type ModelOption } from '../schemas/config.ts';
 import type { Deck } from '../schemas/deck.ts';
-import { loadSources } from '../schemas/sources.ts';
+import { resolveExpo, type Expo } from '../schemas/expo.ts';
+import { knowledgeHash } from '../schemas/notes-review.ts';
 import type { Stage } from '../tools/deps.ts';
 import { loadKnowledgeFragments } from '../tools/read-knowledge.ts';
 import { validateDeck, type DeckRuleParams, type DeckValidation } from '../validators/deck-rules.ts';
@@ -28,8 +29,9 @@ export const STAGE_TITLES: Record<Stage, string> = {
 };
 
 export interface SessionOptions {
-  outputDir?: string;
-  /** Borra todo output/ antes de empezar. */
+  /** Nombre de la exposición (input/<expo>.json); por defecto expo.active de config.yml. */
+  expo?: string;
+  /** Borra los artefactos de output/<expo>/ antes de empezar. */
   fresh?: boolean;
   /** Borra el deck pero conserva claims.json (acto 3 desde cero con la investigación ya hecha). */
   resetDeck?: boolean;
@@ -58,6 +60,9 @@ export interface SessionOutcome {
 
 export interface Session {
   cfg: Config;
+  expo: Expo;
+  /** Revisión de los apuntes contra las fuentes (acto 2). */
+  notes: NotesReview;
   brief: Brief;
   model: ModelOption & { key: string };
   store: DeckStore;
@@ -73,29 +78,31 @@ export interface Session {
   run(): Promise<SessionOutcome>;
 }
 
-const OUTPUT_FILES = ['deck.json', 'claims.json', 'script.md', 'timing.md'];
+const OUTPUT_FILES = ['deck.json', 'claims.json', 'script.md', 'timing.md', NOTES_REVIEW_JSON, NOTES_REVIEW_MD, VALID_NOTES_DIR];
 
 /** Arma todo lo necesario para una ejecución del agente. No imprime nada: emite eventos al sink. */
 export function createSession(opts: SessionOptions): Session {
-  const outputDir = opts.outputDir ?? 'output';
   const cfg = loadConfig();
   if (opts.noGuardrail) cfg.guardrail.enabled = false;
-  const brief = loadBrief();
+  const expo = resolveExpo(opts.expo ?? cfg.expo.active);
+  const { brief, sources, outputDir } = expo;
   const model = activeModel(cfg);
-  const sources = loadSources();
-  const params = deckParams(cfg, brief, loadBrandGuide(), sources, loadFillers());
+  const params = deckParams(cfg, brief, expo.brand, sources, loadFillers());
   const critic = createCritic(
     cfg.critic.provider,
     () => createAgentModel(cfg, { guardrail: false, ...(cfg.critic.model ? { modelKey: cfg.critic.model } : {}) }),
     buildRubric(readFileSync('voice/examples.md', 'utf8'), readFileSync('voice/anti-patterns.md', 'utf8')),
   );
 
-  if (opts.fresh) for (const f of OUTPUT_FILES) rmSync(join(outputDir, f), { force: true });
+  if (opts.fresh) for (const f of OUTPUT_FILES) rmSync(join(outputDir, f), { force: true, recursive: true });
   else if (opts.resetDeck) for (const f of ['deck.json', 'script.md', 'timing.md']) rmSync(join(outputDir, f), { force: true });
 
   const store = DeckStore.load(outputDir, brief.title);
   // En ediciones el agente puede no llamar read_knowledge: precarga los fragmentos para verificar citas a los apuntes.
-  store.setKnowledge(loadKnowledgeFragments('knowledge'));
+  const rawFragments = loadKnowledgeFragments(expo.knowledgeDir);
+  store.setKnowledge(rawFragments);
+  const notes = new NotesReview(cfg.notesReview.stopOn, knowledgeHash(rawFragments));
+  const notesContext = { expo: expo.name, knowledgeDir: expo.knowledgeDir ?? `knowledge/${expo.name}`, topics: sources.topics };
   const hasDeck = store.deck.sections.length > 0;
   const instructionArg = opts.instruction?.trim() ?? '';
   const isEdit = hasDeck && instructionArg !== '';
@@ -125,7 +132,9 @@ export function createSession(opts: SessionOptions): Session {
     store,
     params,
     outputDir,
-    knowledgeDir: 'knowledge',
+    knowledgeDir: expo.knowledgeDir,
+    notes,
+    notesContext,
     research: { sources, library: new SourceLibrary(sources, httpFetcher(sources.limits.fetchTimeoutMs)) },
     critic: { provider: critic, maxCalls: cfg.critic.maxCalls },
     stage,
@@ -161,7 +170,15 @@ export function createSession(opts: SessionOptions): Session {
     const stopReason = result?.stopReason ?? 'structuredOutputError';
     if (stopReason === 'limitTurns') warning = `Tope de ${cfg.agent.maxTurns} turnos alcanzado: el agente se detuvo.`;
     if (stopReason === 'guardrailIntervened') warning = `Bedrock Guardrails detuvo la ejecución: ${String(result)}`;
-    const ok = gate.lastResult?.ok ?? false;
+    let ok = gate.lastResult?.ok ?? false;
+    const problems = [...(gate.lastResult?.problems ?? [])];
+    // Un apunte inconsistente detiene el proceso: el autor lo corrige a mano (revision-apuntes.md).
+    const blocking = s === 'research' ? notes.blocking() : [];
+    if (blocking.length) {
+      ok = false;
+      problems.push(...blocking.map((r) => `Apunte ${r.verdict} ${r.fragmentId} «${r.text.slice(0, 70)}»`));
+      warning = `Tus apuntes tienen ${blocking.length} punto(s) por revisar: ${join(outputDir, NOTES_REVIEW_MD)}`;
+    }
     const seconds = (performance.now() - t) / 1000;
     const summary = (result?.structuredOutput as RunSummary | undefined)?.summary;
     sink({
@@ -170,7 +187,7 @@ export function createSession(opts: SessionOptions): Session {
       seconds,
       stopReason,
       ok,
-      problems: gate.lastResult?.problems ?? [],
+      problems,
       ...(summary ? { summary } : {}),
       ...(warning ? { warning } : {}),
     });
@@ -179,6 +196,8 @@ export function createSession(opts: SessionOptions): Session {
 
   return {
     cfg,
+    expo,
+    notes,
     brief,
     model,
     store,
@@ -195,6 +214,11 @@ export function createSession(opts: SessionOptions): Session {
       let error: string | undefined;
       try {
         for (const s of stages) {
+          // El deck nuevo solo se escribe sobre apuntes revisados y sin inconsistencias.
+          if (s === 'deck' && !isEdit && !done.some((d) => d.stage === 'research')) {
+            const g = notesGate(rawFragments, outputDir, cfg.notesReview.stopOn);
+            if (!g.ok) throw new Error(g.reason);
+          }
           const r = await runStage(s);
           done.push({ stage: s, seconds: r.seconds, ok: r.ok });
           if (r.stop) break;
@@ -203,11 +227,12 @@ export function createSession(opts: SessionOptions): Session {
         error = `${(err as Error).name}: ${(err as Error).message}`;
       }
       store.save(outputDir, params);
+      notes.save(outputDir, notesContext);
       const validation = validateDeck(store.deck, store.claims, params);
       const seconds = (performance.now() - t0) / 1000;
       const costUsd = estimateCostUsd(usage, model.pricing) + guardrailUsd;
       const ok = !error && done.length === stages.length && done.every((d) => d.ok);
-      recordRun(outputDir, { at: new Date().toISOString(), act: opts.act, model: model.key, modelId: model.modelId, seconds, stages: done, usage, costUsd, ok });
+      recordRun({ at: new Date().toISOString(), act: opts.act, expo: expo.name, model: model.key, modelId: model.modelId, seconds, stages: done, usage, costUsd, ok });
       return { ok, seconds, stages: done, ...(error ? { error } : {}), validation, usage, costUsd };
     },
   };
@@ -216,6 +241,8 @@ export function createSession(opts: SessionOptions): Session {
 export interface RunRecord {
   at: string;
   act: string;
+  /** Exposición (input/<expo>.json). Las corridas anteriores a la fase 6b no lo tienen. */
+  expo?: string;
   model: string;
   modelId: string;
   seconds: number;
@@ -225,15 +252,20 @@ export interface RunRecord {
   ok: boolean;
 }
 
-/** Historial de ejecuciones: duración por acto (¿en vivo o en video?) y costo por modelo (acto 5). */
-export function recordRun(outputDir: string, r: RunRecord): void {
-  mkdirSync(outputDir, { recursive: true });
-  appendFileSync(join(outputDir, 'runs.jsonl'), JSON.stringify(r) + '\n');
+/**
+ * Historial de ejecuciones de todas las exposiciones (output/runs.jsonl): duración por acto (¿en vivo o en
+ * video?) y costo por modelo (acto 5), que no depende del tema.
+ */
+export const RUNS_FILE = 'output/runs.jsonl';
+
+export function recordRun(r: RunRecord, file = RUNS_FILE): void {
+  mkdirSync(dirname(file), { recursive: true });
+  appendFileSync(file, JSON.stringify(r) + '\n');
 }
 
-export function loadRuns(outputDir = 'output'): RunRecord[] {
+export function loadRuns(file = RUNS_FILE): RunRecord[] {
   try {
-    return readFileSync(join(outputDir, 'runs.jsonl'), 'utf8')
+    return readFileSync(file, 'utf8')
       .split('\n')
       .filter(Boolean)
       .map((l) => JSON.parse(l) as RunRecord);

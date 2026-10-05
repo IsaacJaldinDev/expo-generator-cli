@@ -3,10 +3,8 @@ import { buildSystemPrompt } from '../agent/system-prompt.ts';
 import { deckParams } from '../agent/params.ts';
 import { createAgentModel } from '../providers/bedrock.ts';
 import { emptyCassette, loadCassette, recordingChecker, RecordingModel, replayChecker, ReplayModel, saveCassette } from '../replay/cassette.ts';
-import { loadBrandGuide } from '../schemas/brand.ts';
-import { loadBrief } from '../schemas/brief.ts';
 import type { Config } from '../schemas/config.ts';
-import { loadSources } from '../schemas/sources.ts';
+import { resolveExpo } from '../schemas/expo.ts';
 import { createGuardrailChecker, withCostTracking } from './apply.ts';
 import type { ScenarioDeps } from './scenarios.ts';
 
@@ -16,8 +14,9 @@ export const cassettePath = (name: string) => `demo/cassettes/guardrails/${name}
 
 /** Dependencias de un escenario según el modo: en vivo, grabando el cassette o reproduciéndolo sin red. */
 export function scenarioDeps(cfg: Config, name: string, mode: RunMode, sink: TraceSink): { deps: ScenarioDeps; finish(): void } {
-  const brief = loadBrief();
-  const systemPrompt = buildSystemPrompt(brief, deckParams(cfg, brief, loadBrandGuide(), loadSources()));
+  // Los escenarios traen sus propios apuntes; de la exposición activa solo toman el brief para el system prompt.
+  const expo = resolveExpo(cfg.expo.active);
+  const systemPrompt = buildSystemPrompt(expo.brief, deckParams(cfg, expo.brief, expo.brand, expo.sources));
   const track = (usd: number) => sink({ kind: 'guardrail-usage', costUsd: usd });
 
   if (mode === 'replay') {

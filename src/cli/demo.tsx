@@ -8,11 +8,10 @@
  *   npm run demo -- guardrails [escenario|all] # 6 · Bedrock Guardrails (--record / --replay)
  *   npm run demo -- canva                      # 7 · 3 slides en Canva vía MCP (--record / --replay)
  *   npm run demo -- full                       # 2 + 3 seguidos
- * Flags: --no-guardrail · --scope=hook,cierre
+ * Flags: --expo=<nombre> (input/<nombre>.json; por defecto expo.active) · --no-guardrail · --scope=hook,cierre
  */
 import { readFileSync } from 'node:fs';
 import { Box, render, Text } from 'ink';
-import { loadBrief } from '../schemas/brief.ts';
 import { activeModel, loadConfig } from '../schemas/config.ts';
 import { loadKnowledgeFragments } from '../tools/read-knowledge.ts';
 import { BriefView, CostView, Header } from './ui/components.tsx';
@@ -23,7 +22,7 @@ import type { RunMode } from '../guardrails/scenario-context.ts';
 import { createSession, loadRuns, recordRun, type SessionOptions, type SessionOutcome } from './session.ts';
 import { DeckStore } from '../agent/deck-store.ts';
 import { emptyUsage } from '../agent/cost.ts';
-import { loadBrandGuide } from '../schemas/brand.ts';
+import { resolveExpo, type Expo } from '../schemas/expo.ts';
 import { renderCanvaInput } from '../render/canva.ts';
 import type { CanvaResult } from '../canva/generate.ts';
 import { runCanva } from '../canva/run.ts';
@@ -36,6 +35,17 @@ const act = ALIASES[positional[0] ?? ''] ?? positional[0] ?? 'help';
 const rest = positional.slice(1).join(' ').trim();
 const scope = args.find((a) => a.startsWith('--scope='))?.slice('--scope='.length);
 const noGuardrail = args.includes('--no-guardrail');
+const expoName = args.find((a) => a.startsWith('--expo='))?.slice('--expo='.length);
+
+/** La exposición del comando: --expo=<nombre> o expo.active. Un input inválido termina con un mensaje claro. */
+function currentExpo(): Expo {
+  try {
+    return resolveExpo(expoName ?? loadConfig().expo.active);
+  } catch (err) {
+    console.error((err as Error).message);
+    process.exit(1);
+  }
+}
 
 /** Renderiza algo estático y termina. */
 async function show(node: React.ReactNode) {
@@ -47,7 +57,7 @@ async function show(node: React.ReactNode) {
 /** Corre una sesión del agente con la vista de trazas en vivo. */
 async function runAct(label: string, title: string, panel: ResultPanel, opts: Omit<SessionOptions, 'sink'>) {
   const bus = createEventBus();
-  const session = createSession({ ...opts, sink: bus.emit });
+  const session = createSession({ ...opts, expo: currentExpo().name, sink: bus.emit });
   let ok = false;
   // El acto 2 no tiene deck todavía: su éxito es la etapa (claims verificados), no validate_deck.
   const onDone = (o: SessionOutcome) => (ok = o.ok && (panel === 'claims' || o.validation.ok));
@@ -69,7 +79,7 @@ switch (act) {
     await show(
       <Box flexDirection="column">
         <Header act="ACTO 1" title="Brief y apuntes" subtitle="Lo que recibe el agente: un brief, mis apuntes, mi voz y mi línea gráfica" />
-        <BriefView brief={loadBrief()} fragments={loadKnowledgeFragments('knowledge')} />
+        <BriefView expo={currentExpo()} fragments={loadKnowledgeFragments(currentExpo().knowledgeDir)} />
       </Box>,
     );
     break;
@@ -120,10 +130,11 @@ switch (act) {
   case 'canva': {
     const mode = args.includes('--record') ? 'record' : args.includes('--replay') ? 'replay' : 'live';
     const cfg = loadConfig();
-    const brand = loadBrandGuide();
-    const store = DeckStore.load('output', loadBrief().title);
+    const expo = currentExpo();
+    const brand = expo.brand;
+    const store = DeckStore.load(expo.outputDir, expo.brief.title);
     if (store.deck.sections.length === 0) {
-      console.error('No hay deck en output/: corre primero el acto 3 (npm run demo -- plan) o carga un checkpoint.');
+      console.error(`No hay deck en ${expo.outputDir}/: corre primero el acto 3 (npm run demo -- plan --expo=${expo.name}).`);
       process.exitCode = 1;
       break;
     }
@@ -133,15 +144,16 @@ switch (act) {
       <CanvaApp
         brand={brand}
         input={input}
+        title={expo.name}
         mode={mode === 'replay' ? 'REPLAY (cassette)' : mode === 'record' ? 'grabando cassette' : 'en vivo'}
         fallbackUrl={cfg.canva.fallbackDeckUrl}
-        run={(sink) => runCanva(cfg, input, mode, sink)}
+        run={(sink) => runCanva(cfg, input, mode, sink, expo.name)}
         onDone={(r) => (result = r)}
       />,
       { exitOnCtrlC: true },
     );
     await app.waitUntilExit();
-    if (result) recordRun('output', { at: new Date().toISOString(), act: 'canva', model: 'canva-mcp', modelId: mode, seconds: result.seconds, stages: [], usage: emptyUsage(), costUsd: 0, ok: result.ok });
+    if (result) recordRun({ at: new Date().toISOString(), act: 'canva', expo: expo.name, model: 'canva-mcp', modelId: mode, seconds: result.seconds, stages: [], usage: emptyUsage(), costUsd: 0, ok: result.ok });
     // El transporte HTTP del MCP puede dejar handles abiertos: el acto termina aquí.
     process.exit(result?.ok ? 0 : 1);
   }
@@ -150,7 +162,7 @@ switch (act) {
       <Box flexDirection="column">
         <Text bold>npm run demo -- {'<acto>'}</Text>
         <Text>  brief · research · plan · edit "instrucción" · bedrock · guardrails · canva · full</Text>
-        <Text dimColor>  (o 1–7) · flags: --no-guardrail --scope=hook,cierre · guardrails: --record --replay</Text>
+        <Text dimColor>  (o 1–7) · flags: --expo=nombre --no-guardrail --scope=hook,cierre · guardrails/canva: --record --replay</Text>
       </Box>,
     );
 }

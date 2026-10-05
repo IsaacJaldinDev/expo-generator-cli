@@ -12,7 +12,7 @@ import { SourceLibrary } from '../src/research/search.ts';
 import type { Deck } from '../src/schemas/deck.ts';
 import { validateDeck } from '../src/validators/deck-rules.ts';
 import { lintVoice, loadFillers, parseFillers, type VoiceRules } from '../src/validators/voice-lint.ts';
-import { claims, params, sources, validDeck } from './fixtures.ts';
+import { claims, params, sources, validDeck, notesDeps } from './fixtures.ts';
 
 const rules: VoiceRules = { fillers: ['cabe destacar', 'en el mundo actual', 'es fundamental'], maxSentenceWords: 15, maxTriadsPerSection: 1, maxNotXButY: 1, maxRhetoricalQA: 1 };
 
@@ -121,6 +121,7 @@ describe('critique_voice (llamada separada)', () => {
       research: { sources, library: new SourceLibrary(sources, async () => '') },
       critic: { provider: fake, maxCalls: 2 },
       stage: { current: 'deck' },
+      ...notesDeps(),
       sink: (e) => events.push(e),
       maxRevisionRounds: 0,
       structuredOutputRetries: 1,

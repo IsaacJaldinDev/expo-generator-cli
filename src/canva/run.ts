@@ -9,7 +9,14 @@ export const CANVA_CASSETTE = 'demo/cassettes/canva.json';
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Acto 7 en vivo, grabando el cassette o reproduciéndolo. Nunca lanza: los fallos vuelven como { ok: false }. */
-export async function runCanva(cfg: Config, input: CanvaDesignInput, mode: 'live' | 'record' | 'replay', sink: TraceSink): Promise<CanvaResult> {
+export async function runCanva(
+  cfg: Config,
+  input: CanvaDesignInput,
+  mode: 'live' | 'record' | 'replay',
+  sink: TraceSink,
+  title?: string,
+): Promise<CanvaResult> {
+  const named = title ? { title } : {};
   const t0 = performance.now();
   try {
     if (mode === 'replay') {
@@ -18,6 +25,7 @@ export async function runCanva(cfg: Config, input: CanvaDesignInput, mode: 'live
       return await generateSlides(input, replayCaller(cassette), {
         sink,
         timeoutMs: Number.POSITIVE_INFINITY,
+        ...named,
         sleep: (ms) => (speed > 0 ? sleep(ms / speed) : Promise.resolve()),
       });
     }
@@ -28,6 +36,7 @@ export async function runCanva(cfg: Config, input: CanvaDesignInput, mode: 'live
       sink,
       timeoutMs: cfg.canva.timeoutMs,
       sleep,
+      ...named,
     });
     if (mode === 'record' && result.ok) saveCassette(CANVA_CASSETTE, cassette);
     await client.disconnect().catch(() => {});

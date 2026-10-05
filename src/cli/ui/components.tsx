@@ -1,7 +1,8 @@
 import { Box, Text, useAnimation, useWindowSize } from 'ink';
 import type { UsageTotals } from '../../agent/events.ts';
-import type { Brief } from '../../schemas/brief.ts';
-import type { Claim } from '../../schemas/claims.ts';
+import type { Expo } from '../../schemas/expo.ts';
+import type { NoteReview } from '../../schemas/notes-review.ts';
+import { unverifiedReason, type Claim } from '../../schemas/claims.ts';
 import type { Deck } from '../../schemas/deck.ts';
 import type { DeckValidation } from '../../validators/deck-rules.ts';
 import { looksLikeExternalFact } from '../../validators/text.ts';
@@ -170,12 +171,55 @@ export function ClaimsTable({ claims }: { claims: Claim[] }) {
           <Box flexGrow={1}>
             <Text wrap="truncate-end">
               {c.text}
-              {!c.verified && <Text color="red">{c.checks && !c.checks.numbersMatch ? '  (cifras no respaldadas)' : '  (cita no encontrada)'}</Text>}
+              {!c.verified && <Text color="red">{`  (${unverifiedReason(c)})`}</Text>}
             </Text>
           </Box>
         </Box>
       ))}
       {author.length > 0 && <Text dimColor>{`   + ${author.length} claims de autor (citas a tus apuntes)`}</Text>}
+    </Box>
+  );
+}
+
+const VERDICT = {
+  confirmado: { mark: '✓', color: 'green' },
+  inconsistente: { mark: '✗', color: 'red' },
+  'sin-respaldo': { mark: '?', color: 'yellow' },
+} as const;
+
+/** Acto 2: cada apunte revisado contra las fuentes. Si alguno detiene el proceso, dónde está el resumen. */
+export function NotesReviewTable({ reviews, blocking, reportPath }: { reviews: NoteReview[]; blocking: number; reportPath: string }) {
+  if (reviews.length === 0) return null;
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold>tus apuntes vs. las fuentes</Text>
+      {reviews.map((r) => (
+        <Box key={r.fragmentId}>
+          <Box width={3}>
+            <Text color={VERDICT[r.verdict].color}>{VERDICT[r.verdict].mark}</Text>
+          </Box>
+          <Box width={16}>
+            <Text bold wrap="truncate-end">
+              {r.fragmentId}
+            </Text>
+          </Box>
+          <Box width={15}>
+            <Text color={VERDICT[r.verdict].color}>{r.verdict}</Text>
+          </Box>
+          <Box flexGrow={1}>
+            <Text wrap="truncate-end">{r.text}</Text>
+          </Box>
+        </Box>
+      ))}
+      {blocking > 0 && (
+        <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor="red" paddingX={1}>
+          <Text bold color="red">{`✗ El proceso se detuvo: ${blocking} apunte(s) por corregir`}</Text>
+          <Text>
+            Resumen: <Text bold>{reportPath}</Text>
+          </Text>
+          <Text dimColor>Corrige tus apuntes (apuntes-validos/ tiene lo que está bien, listo para copiar) y vuelve a correr el acto 2.</Text>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -280,36 +324,46 @@ export function DiffView({ diffs }: { diffs: SectionDiff[] }) {
   );
 }
 
-export function BriefView({ brief, fragments }: { brief: Brief; fragments: KnowledgeFragment[] }) {
+/** Campo del brief: los opcionales que el input no trae se ven como "—". */
+function Field({ label, value, bold }: { label: string; value?: string | undefined; bold?: boolean }) {
+  return (
+    <Text>
+      <Text dimColor>{label.padEnd(11)}</Text>
+      {value ? <Text bold={bold ?? false}>{value}</Text> : <Text dimColor>—</Text>}
+    </Text>
+  );
+}
+
+export function BriefView({ expo, fragments }: { expo: Expo; fragments: KnowledgeFragment[] }) {
+  const { brief } = expo;
   const files = [...new Set(fragments.map((f) => f.id.split('#')[0]!))];
   const suspicious = fragments.filter((f) => looksLikeExternalFact(f.text));
   return (
     <Box flexDirection="column">
-      <Text bold color="cyan">brief.yml</Text>
-      <Text>
-        <Text dimColor>tema       </Text>
-        {brief.title}
-      </Text>
-      <Text>
-        <Text dimColor>audiencia  </Text>
-        {brief.audience}
-      </Text>
-      <Text>
-        <Text dimColor>duración   </Text>
-        <Text bold>{brief.durationMinutes} minutos</Text>
-      </Text>
-      <Text>
-        <Text dimColor>objetivo   </Text>
-        {brief.objective}
-      </Text>
+      <Text bold color="cyan">{expo.inputPath}</Text>
+      <Field label="tema" value={brief.title} />
+      <Field label="audiencia" value={brief.audience} />
+      <Field label="duración" value={`${brief.durationMinutes} minutos`} bold />
+      <Field label="objetivo" value={brief.objective} />
       <Box marginTop={1} flexDirection="column">
-        <Text bold color="cyan">knowledge/</Text>
-        {files.map((f) => (
-          <Text key={f}>
-            {'  '}
-            {f}.md <Text dimColor>· {fragments.filter((x) => x.id.startsWith(`${f}#`)).length} fragmentos</Text>
-          </Text>
-        ))}
+        <Text bold color="cyan">{expo.knowledgeDir ? `${expo.knowledgeDir}/` : `knowledge/${expo.name}/`}</Text>
+        {expo.knowledgeDir ? (
+          files.map((f) => (
+            <Text key={f}>
+              {'  '}
+              {f}.md <Text dimColor>· {fragments.filter((x) => x.id.startsWith(`${f}#`)).length} fragmentos</Text>
+            </Text>
+          ))
+        ) : (
+          <Text dimColor>{'  sin apuntes locales: el agente trabaja con el brief y con research'}</Text>
+        )}
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text dimColor>
+          {`fuentes   ${expo.sources.topics.join(', ')} · ${expo.sources.seeds.length} semillas${expo.userSources ? ` (${expo.userSources} aportadas por ti)` : ''}`}
+        </Text>
+        <Text dimColor>{`visual    ${expo.brandOverridden ? `config/brand-guide.yml + ajustes de ${expo.inputPath}` : 'config/brand-guide.yml'}`}</Text>
+        <Text dimColor>{`salida    ${expo.outputDir}/`}</Text>
       </Box>
       {suspicious.length > 0 && (
         <Box marginTop={1} flexDirection="column">

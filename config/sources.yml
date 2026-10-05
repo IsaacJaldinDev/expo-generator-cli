@@ -1,47 +1,139 @@
-# Fuentes permitidas para `research` y `record_claim`.
-# El agente NUNCA sale de esta allowlist. El tier de cada claim sale de este mapeo fijo, no del LLM.
+# Fuentes de verdad para `research`, `record_claim` y la revisión de apuntes, organizadas por tema.
+# El agente NUNCA sale de la allowlist. El tier de cada claim sale de este mapeo fijo, no del LLM.
+#
+# Tiers:
+#   primary    organismos oficiales, estándares y documentación oficial (OMS, NIST, IETF, W3C, docs del producto)
+#   secondary  material académico o editorial reconocido (arXiv, Nature Scitable, OpenStax) e instituciones
+#   community  código y comunidad
+#   aportada   (automático) fuentes que el autor agrega en input/<expo>.json → `sources`
+# Un dominio que aparece en varios temas debe tener el mismo tier en todos.
+#
+# input/<expo>.json elige los temas con `topics: ["cloud", "bases-de-datos"]`; sin `topics` se usan todos.
+# Semillas verificadas el 2026-10-05: responden 200 y su texto se extrae sin ejecutar JavaScript.
 
-tiers:
-  # Documentación oficial y especificación del protocolo
-  primary:
-    - modelcontextprotocol.io
-    - www.anthropic.com
-    - docs.aws.amazon.com
-  # Organizaciones e instituciones que gobiernan o adoptan el estándar
-  secondary:
-    - www.linuxfoundation.org
-    - aws.amazon.com
-  # Código y comunidad
-  community:
-    - github.com
+topics:
+  inteligencia-artificial:
+    label: Inteligencia artificial y agentes
+    domains:
+      primary: [modelcontextprotocol.io, www.anthropic.com, docs.aws.amazon.com, www.nist.gov, csrc.nist.gov]
+      secondary: [www.linuxfoundation.org, aws.amazon.com, arxiv.org]
+      community: [github.com]
+    seeds:
+      - url: https://modelcontextprotocol.io/docs/getting-started/intro
+        note: Qué es MCP, analogía USB-C
+      - url: https://modelcontextprotocol.io/docs/learn/architecture
+        note: Host/cliente/servidor, JSON-RPC 2.0, transportes stdio y Streamable HTTP, primitivas
+      - url: https://modelcontextprotocol.io/docs/learn/server-concepts
+        note: Herramientas, recursos y prompts
+      - url: https://www.anthropic.com/news/model-context-protocol
+        note: Anuncio original de MCP (25 nov 2024)
+      - url: https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation
+        note: Donación de MCP a la Agentic AI Foundation (Linux Foundation), adopción, número de servidores
+      - url: https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation
+        note: Anuncio de la Linux Foundation
+      - url: https://github.com/modelcontextprotocol/servers
+        note: Servidores MCP de referencia
+      - url: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html
+        note: MCP en AWS (AgentCore Gateway)
+      - url: https://arxiv.org/abs/1706.03762
+        note: Paper del Transformer, Attention Is All You Need (Vaswani et al., 2017)
+      - url: https://www.nist.gov/itl/ai-risk-management-framework
+        note: NIST AI Risk Management Framework
+      - url: https://csrc.nist.gov/glossary/term/artificial_intelligence
+        note: Definiciones de inteligencia artificial del glosario de NIST
 
-# URLs semilla curadas: el modo por defecto de `research` (lo más confiable para la demo).
-# Verificadas el 2026-10-04: responden 200 y su texto se extrae sin ejecutar JavaScript.
-seeds:
-  - url: https://modelcontextprotocol.io/docs/getting-started/intro
-    note: Qué es MCP, analogía USB-C
-  - url: https://modelcontextprotocol.io/docs/learn/architecture
-    note: Host/cliente/servidor, JSON-RPC 2.0, transportes stdio y Streamable HTTP, primitivas
-  - url: https://modelcontextprotocol.io/docs/learn/server-concepts
-    note: Herramientas, recursos y prompts
-  - url: https://www.anthropic.com/news/model-context-protocol
-    note: Anuncio original (25 nov 2024)
-  - url: https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation
-    note: Donación a la Agentic AI Foundation (Linux Foundation), adopción, número de servidores
-  - url: https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation
-    note: Anuncio de la Linux Foundation
-  - url: https://github.com/modelcontextprotocol/servers
-    note: Servidores de referencia
-  - url: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html
-    note: MCP en AWS (AgentCore Gateway)
+  tecnologia:
+    label: Tecnología, web y estándares
+    domains:
+      primary: [www.rfc-editor.org, www.w3.org]
+      secondary: [developer.mozilla.org]
+      community: [github.com]
+    seeds:
+      - url: https://www.rfc-editor.org/rfc/rfc9110.html
+        note: RFC 9110, semántica de HTTP (IETF)
+      - url: https://www.w3.org/standards/
+        note: Estándares web del W3C
+      - url: https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview
+        note: Panorama de HTTP (MDN)
+
+  bases-de-datos:
+    label: Bases de datos
+    domains:
+      primary: [www.postgresql.org, dev.mysql.com, www.mongodb.com]
+      community: [github.com]
+    seeds:
+      - url: https://www.postgresql.org/docs/current/intro-whatis.html
+        note: Qué es PostgreSQL
+      - url: https://www.postgresql.org/docs/current/tutorial-transactions.html
+        note: Transacciones en PostgreSQL
+      - url: https://www.postgresql.org/docs/current/mvcc-intro.html
+        note: Control de concurrencia multiversión (MVCC)
+      - url: https://dev.mysql.com/doc/refman/8.4/en/mysql-acid.html
+        note: ACID en MySQL (InnoDB)
+      - url: https://www.mongodb.com/docs/manual/core/transactions/
+        note: Transacciones en MongoDB
+
+  cloud:
+    label: Cloud computing
+    domains:
+      primary: [csrc.nist.gov, docs.aws.amazon.com]
+      secondary: [aws.amazon.com, cloud.google.com, learn.microsoft.com]
+    seeds:
+      - url: https://csrc.nist.gov/pubs/sp/800/145/final
+        note: NIST SP 800-145, la definición de cloud computing
+      - url: https://docs.aws.amazon.com/whitepapers/latest/aws-overview/introduction.html
+        note: Panorama de AWS (whitepaper)
+      - url: https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html
+        note: Qué es Amazon S3
+      - url: https://cloud.google.com/learn/what-is-cloud-computing
+        note: Qué es cloud computing (Google Cloud)
+      - url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/overview
+        note: Cloud Adoption Framework (Microsoft Azure)
+
+  medicina:
+    label: Medicina y salud pública
+    domains:
+      primary: [www.who.int, www.paho.org, medlineplus.gov, www.cdc.gov]
+    seeds:
+      - url: https://www.who.int/es/news-room/fact-sheets/detail/diabetes
+        note: OMS, nota descriptiva sobre diabetes (en español)
+      - url: https://www.who.int/news-room/fact-sheets/detail/hypertension
+        note: OMS, hipertensión
+      - url: https://www.who.int/news-room/fact-sheets/detail/antimicrobial-resistance
+        note: OMS, resistencia a los antimicrobianos
+      - url: https://www.paho.org/es/temas/diabetes
+        note: OPS, diabetes en las Américas (en español)
+      - url: https://medlineplus.gov/diabetes.html
+        note: MedlinePlus (Biblioteca Nacional de Medicina de EE. UU.), diabetes
+      - url: https://www.cdc.gov/diabetes/about/index.html
+        note: CDC, qué es la diabetes
+
+  biologia:
+    label: Biología
+    domains:
+      primary: [www.genome.gov, www.ebi.ac.uk]
+      secondary: [www.nature.com, openstax.org]
+    seeds:
+      - url: https://www.genome.gov/about-genomics/fact-sheets/Deoxyribonucleic-Acid-Fact-Sheet
+        note: NHGRI, ficha del ADN
+      - url: https://www.genome.gov/human-genome-project
+        note: NHGRI, el Proyecto Genoma Humano
+      - url: https://www.ebi.ac.uk/training/online/courses/functional-genomics-i-introduction-and-design/what-is-functional-genomics/
+        note: EMBL-EBI, qué es la genómica funcional
+      - url: https://www.nature.com/scitable/topicpage/dna-is-a-structure-that-encodes-biological-6493050/
+        note: Nature Scitable, el ADN codifica información biológica
+      - url: https://www.nature.com/scitable/topicpage/gene-expression-14121669/
+        note: Nature Scitable, expresión génica
+      - url: https://openstax.org/books/biology-2e/pages/1-introduction
+        note: OpenStax Biology 2e (libro de texto universitario abierto)
 
 search:
-  # seeds: solo las URLs de arriba. Un proveedor con API key se agrega detrás de SearchProvider
-  # (src/research/search.ts) y sus resultados igual se filtran por la allowlist.
+  # seeds: solo las URLs semilla de los temas elegidos (más las aportadas). Un proveedor con API key se agrega
+  # detrás de SearchProvider (src/research/search.ts) y sus resultados igual se filtran por la allowlist.
   provider: seeds
 
 limits:
-  maxResearchCalls: 8 # por ejecución (el grounding rechaza algunos claims: hace falta margen)
+  maxResearchCalls: 12 # por ejecución: la revisión de apuntes también busca (el grounding rechaza algunos claims)
   minExternalClaims: 3 # validate_deck exige que el script cite al menos estos claims externos verificados
   maxExternalClaims: 5 # verificados como máximo: el agente investiga solo los huecos (3–5 claims)
   fetchTimeoutMs: 15000

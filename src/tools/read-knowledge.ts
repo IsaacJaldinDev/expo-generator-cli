@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
@@ -29,29 +29,32 @@ export function fragmentMarkdown(name: string, markdown: string): KnowledgeFragm
   return fragments;
 }
 
-/** Fragmentos de todos los .md de knowledge/ (sin guardrail): para precargar el store en ediciones. */
-export function loadKnowledgeFragments(dir: string): KnowledgeFragment[] {
+/** .md de la carpeta de apuntes; sin carpeta (undefined o inexistente) no hay apuntes locales. */
+function markdownFiles(dir: string | undefined): string[] {
+  if (!dir || !existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((f) => f.endsWith('.md'))
-    .sort()
-    .flatMap((f) => fragmentMarkdown(basename(f, '.md'), readFileSync(join(dir, f), 'utf8')));
+    .sort();
+}
+
+/** Fragmentos de todos los .md de knowledge/<expo>/ (sin guardrail): para precargar el store en ediciones. */
+export function loadKnowledgeFragments(dir: string | undefined): KnowledgeFragment[] {
+  return markdownFiles(dir).flatMap((f) => fragmentMarkdown(basename(f, '.md'), readFileSync(join(dir!, f), 'utf8')));
 }
 
 /**
- * Lee knowledge/*.md pasando cada archivo por ApplyGuardrail (INPUT): Converse no evalúa resultados de
+ * Lee knowledge/<expo>/*.md pasando cada archivo por ApplyGuardrail (INPUT): Converse no evalúa resultados de
  * herramientas, así que los apuntes se revisan aquí. Los bloqueados se excluyen; los enmascarados llegan enmascarados.
  */
 export async function readKnowledgeGuarded(
-  dir: string,
+  dir: string | undefined,
   checker: GuardrailChecker | undefined,
   sink: TraceSink,
 ): Promise<{ files: string[]; fragments: KnowledgeFragment[]; blocked: string[] }> {
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith('.md'))
-    .sort();
+  const files = markdownFiles(dir);
   const results = await Promise.all(
     files.map(async (file) => {
-      const raw = readFileSync(join(dir, file), 'utf8');
+      const raw = readFileSync(join(dir!, file), 'utf8');
       if (!checker) return { file, text: raw, blocked: false };
       const r = await checker.check(raw, 'input');
       if (r.interventions.length) sink({ kind: 'guardrail', via: 'apply-guardrail', interventions: r.interventions });
@@ -71,17 +74,29 @@ export function readKnowledgeTool(deps: ToolDeps) {
   return tool({
     name: 'read_knowledge',
     description:
-      'Lee los apuntes del autor (knowledge/*.md) y devuelve fragmentos con id. Úsalo antes de planificar. ' +
+      'Lee los apuntes del autor (knowledge/<expo>/*.md) y devuelve fragmentos con id. Úsalo antes de planificar. ' +
       'Los apuntes pasan por Bedrock Guardrails antes de llegar a ti.',
     inputSchema: z.object({}),
     callback: async () => {
       const { files, fragments, blocked } = await readKnowledgeGuarded(deps.knowledgeDir, deps.checker, deps.sink);
       // Solo los fragmentos que pasaron el guardrail pueden citarse como procedencia de autor.
       deps.store.setKnowledge(fragments);
+      deps.notes.setFragments(fragments);
+      // Desde aquí la revisión existe (incompleta): si la ejecución se corta, el acto 3 no avanza con apuntes sin revisar.
+      deps.notes.save(deps.outputDir, deps.notesContext);
+      if (files.length === 0) {
+        return {
+          ok: true,
+          files: 0,
+          fragments: [],
+          note: 'No hay apuntes locales para esta exposición: trabaja con el brief y con research. No uses marcadores [^notes#n].',
+        };
+      }
       return {
         ok: blocked.length === 0,
         files: files.length,
         fragments,
+        next: 'Cada fragmento debe quedar revisado (research → review_note) o marcado como propio (mark_own_notes, en una sola llamada).',
         ...(blocked.length
           ? { blockedFiles: blocked, warning: 'Bedrock Guardrails bloqueó estos archivos; no los uses.' }
           : {}),

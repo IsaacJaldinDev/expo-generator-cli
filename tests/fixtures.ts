@@ -1,3 +1,4 @@
+import { NotesReview } from '../src/agent/notes-review.ts';
 import type { Claim } from '../src/schemas/claims.ts';
 import { SourcesSchema, type Sources } from '../src/schemas/sources.ts';
 import type { Deck, Section } from '../src/schemas/deck.ts';
@@ -76,3 +77,9 @@ export const claims: Claim[] = [
     verified: false,
   },
 ];
+
+/** Revisión de apuntes vacía para las dependencias del agente en tests. */
+export const notesDeps = () => ({
+  notes: new NotesReview(['inconsistente'], 'test'),
+  notesContext: { expo: 'test', knowledgeDir: 'knowledge/test', topics: ['inteligencia-artificial'] },
+});

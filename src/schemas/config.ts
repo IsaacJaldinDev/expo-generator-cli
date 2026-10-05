@@ -26,6 +26,8 @@ export const ConfigSchema = z
       profile: z.string().min(1),
       region: z.string().min(1),
     }),
+    /** Exposición activa: input/<active>.json. `--expo=<nombre>` la sobreescribe en cada comando. */
+    expo: z.object({ active: z.string().min(1).default('ejemplo') }).default({ active: 'ejemplo' }),
     model: z.object({
       active: z.string().min(1),
       options: z.record(z.string(), ModelOptionSchema),
@@ -43,6 +45,12 @@ export const ConfigSchema = z
       model: z.string().default(''),
       maxCalls: z.number().int().min(0).default(2),
     }),
+    notesReview: z
+      .object({
+        /** Veredictos de la revisión de apuntes que detienen el proceso hasta que el autor corrija sus apuntes. */
+        stopOn: z.array(z.enum(['confirmado', 'inconsistente', 'sin-respaldo'])).default(['inconsistente']),
+      })
+      .default({ stopOn: ['inconsistente'] }),
     replay: z
       .object({ speed: z.number().min(0).default(1), eventDelayMs: z.number().int().min(0).default(12) })
       .default({ speed: 1, eventDelayMs: 12 }),

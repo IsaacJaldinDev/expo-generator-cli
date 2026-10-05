@@ -6,6 +6,8 @@ import type { ToolDeps } from '../tools/deps.ts';
 import { readKnowledgeTool } from '../tools/read-knowledge.ts';
 import { recordClaimTool } from '../tools/record-claim.ts';
 import { researchTool } from '../tools/research.ts';
+import { markOwnNotesTool } from '../tools/mark-own-notes.ts';
+import { reviewNoteTool } from '../tools/review-note.ts';
 import { updateSectionTool } from '../tools/update-section.ts';
 import { validateDeckTool } from '../tools/validate-deck.ts';
 import { validateDeck } from '../validators/deck-rules.ts';
@@ -48,6 +50,8 @@ export function createExpoAgent(deps: ExpoAgentDeps) {
     tools: [
       readKnowledgeTool(deps),
       researchTool(deps),
+      reviewNoteTool(deps),
+      markOwnNotesTool(deps),
       recordClaimTool(deps),
       updateSectionTool(deps),
       checkTimingTool(deps),
@@ -71,8 +75,26 @@ export function createExpoAgent(deps: ExpoAgentDeps) {
   return { agent, abort, gate, invokeOptions };
 }
 
-/** Compuerta del acto 2: hay suficientes claims externos verificados para escribir el deck. */
-export function validateResearch(deps: Pick<ToolDeps, 'store' | 'params'>): { ok: boolean; problems: string[] } {
+/**
+ * Compuerta del acto 2:
+ * 1. Si hay apuntes, se leyeron y cada fragmento quedó revisado o marcado como propio.
+ * 2. Si algún apunte detiene el proceso (inconsistente), la etapa termina ahí: le toca al autor corregirlo.
+ * 3. Si no, hay suficientes claims externos verificados para escribir el deck.
+ */
+export function validateResearch(deps: Pick<ToolDeps, 'store' | 'params' | 'notes' | 'knowledgeDir'>): { ok: boolean; problems: string[] } {
+  if (deps.knowledgeDir && !deps.notes.loaded) return { ok: false, problems: ['Lee primero los apuntes del autor con read_knowledge.'] };
+  const pending = deps.notes.pending();
+  if (pending.length) {
+    return {
+      ok: false,
+      problems: [
+        `Faltan ${pending.length} fragmentos de los apuntes: revísalos (research → review_note) o márcalos como propios (mark_own_notes) si son ideas, experiencias u opiniones: ${pending
+          .map((f) => `${f.id} «${f.text.slice(0, 60)}»`)
+          .join('; ')}.`,
+      ],
+    };
+  }
+  if (deps.notes.blocking().length) return { ok: true, problems: [] };
   const verified = deps.store.claims.filter((c) => c.origin === 'external' && c.verified).length;
   return verified >= deps.params.minExternalClaims
     ? { ok: true, problems: [] }
@@ -87,7 +109,7 @@ export function validateResearch(deps: Pick<ToolDeps, 'store' | 'params'>): { ok
 /** Instrucción de cada etapa. */
 export const STAGE_INSTRUCTIONS = {
   research:
-    'ACTO 2 — Huecos y research. Lee los apuntes (read_knowledge), identifica las afirmaciones verificables sin fuente y respáldalas: research → record_claim con el passageId. No escribas el deck todavía. Termina cuando tengas los claims.',
+    'ACTO 2 — Revisión de apuntes y research. Lee los apuntes (read_knowledge). Contrasta con las fuentes cada fragmento que afirma un hecho (research → review_note) y marca el resto como propio (mark_own_notes, una llamada); si alguno resulta inconsistente, termina: el autor lo corregirá. Si no, respalda los huecos: research → record_claim con el passageId. No escribas el deck todavía.',
   deck: 'ACTO 3 — Plan y validación. Con los apuntes y los claims verificados de claims.json, escribe la exposición sección por sección (update_section), luego check_timing y validate_deck hasta que pasen.',
 } as const;
 

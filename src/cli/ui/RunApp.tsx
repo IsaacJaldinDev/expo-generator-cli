@@ -4,7 +4,9 @@ import type { TraceEvent } from '../../agent/events.ts';
 import { estimateCostUsd } from '../../agent/cost.ts';
 import type { Session, SessionOutcome } from '../session.ts';
 import { buildChain } from './chain.ts';
-import { ChainLine, ClaimsTable, DiffView, Footer, Header, TimingTable, TraceView, ValidationLine } from './components.tsx';
+import { join } from 'node:path';
+import { NOTES_REVIEW_MD } from '../../agent/notes-review.ts';
+import { ChainLine, ClaimsTable, NotesReviewTable, DiffView, Footer, Header, TimingTable, TraceView, ValidationLine } from './components.tsx';
 import { diffDecks } from './diff.ts';
 import { reduceRows, type Row } from './rows.ts';
 
@@ -74,6 +76,9 @@ export function RunApp(props: { bus: EventBus; session: Session; act: string; ti
       {outcome && (
         <Box flexDirection="column">
           {outcome.error && <Text color="red" bold>{`✗ ${outcome.error}`}</Text>}
+          {props.panel !== 'diff' && (
+            <NotesReviewTable reviews={session.notes.list()} blocking={session.notes.blocking().length} reportPath={join(session.expo.outputDir, NOTES_REVIEW_MD)} />
+          )}
           {props.panel === 'claims' && <ClaimsTable claims={session.store.claims} />}
           {props.panel === 'deck' && (
             <>

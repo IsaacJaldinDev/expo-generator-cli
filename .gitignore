@@ -12,6 +12,12 @@ coverage/
 **/canva-tokens*.json
 **/oauth*.json
 
+# Exposiciones: cada quien crea input/<nombre>.json y knowledge/<nombre>/; solo el ejemplo se versiona
+input/*
+!input/ejemplo.json
+knowledge/*
+!knowledge/ejemplo/
+
 # Salidas generadas por el agente (los checkpoints y cassettes de demo/ SÍ se versionan)
 output/*
 !output/.gitkeep

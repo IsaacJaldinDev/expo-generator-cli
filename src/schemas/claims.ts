@@ -39,3 +39,11 @@ export type Claim = z.infer<typeof ClaimSchema>;
 
 export const ClaimsFileSchema = z.object({ claims: z.array(ClaimSchema) });
 export type ClaimsFile = z.infer<typeof ClaimsFileSchema>;
+
+/** Por qué un claim externo no quedó verificado, en palabras del público. */
+export function unverifiedReason(c: Pick<Claim, 'checks'>): string {
+  if (!c.checks?.quoteFound) return 'cita no encontrada';
+  if (!c.checks.numbersMatch) return 'cifras no respaldadas';
+  if (c.checks.grounded === false) return 'la fuente no lo respalda';
+  return 'sin verificar';
+}

@@ -60,6 +60,8 @@ export class DeckStore {
     quote: string;
     verified: boolean;
     checks: { quoteFound: boolean; numbersMatch: boolean; grounded?: boolean; groundingScore?: number };
+    /** Fragmento de los apuntes que este claim confirma (revisión de apuntes). */
+    knowledgeRef?: string;
   }): Claim {
     const n = this.claims.filter((x) => x.origin === 'external').length + 1;
     let id = `c-${n}`;

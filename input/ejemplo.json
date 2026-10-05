@@ -1,0 +1,17 @@
+{
+  "title": "MCP: el enchufe universal de los agentes de IA",
+  "durationMinutes": 5,
+  "topics": [
+    "inteligencia-artificial"
+  ],
+  "topic": "Qué es el Model Context Protocol (MCP) y por qué importa para quien construye con IA",
+  "audience": "Estudiantes universitarios de ingeniería y computación; saben programar, poca experiencia con agentes",
+  "objective": "Que cada asistente entienda qué problema resuelve MCP y se anime a conectar su primer servidor MCP",
+  "language": "es",
+  "mustInclude": [
+    "El problema de integrar N modelos con M herramientas",
+    "Las tres piezas de MCP (host, cliente, servidor)",
+    "Un ejemplo concreto y cercano para estudiantes"
+  ],
+  "callToAction": "Instalar un servidor MCP esta semana y conectarlo a su asistente favorito"
+}

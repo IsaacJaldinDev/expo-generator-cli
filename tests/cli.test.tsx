@@ -2,9 +2,12 @@ import { renderToString } from 'ink';
 import { describe, expect, it } from 'vitest';
 import type { TraceEvent } from '../src/agent/events.ts';
 import { buildChain, formatChain } from '../src/cli/ui/chain.ts';
-import { BriefView, ChainLine, ClaimsTable, CostView, DiffView, TraceView } from '../src/cli/ui/components.tsx';
+import { BriefView, ChainLine, ClaimsTable, CostView, DiffView, NotesReviewTable, TraceView } from '../src/cli/ui/components.tsx';
 import { diffDecks } from '../src/cli/ui/diff.ts';
 import { reduceRows, type Row } from '../src/cli/ui/rows.ts';
+import { loadBrandGuide } from '../src/schemas/brand.ts';
+import type { Expo } from '../src/schemas/expo.ts';
+import { loadSources } from '../src/schemas/sources.ts';
 import { claims, section, validDeck } from './fixtures.ts';
 
 const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
@@ -124,11 +127,33 @@ describe('paneles', () => {
     expect(out).toContain('+ 1 claims de autor');
   });
 
+  const expo = (over: Partial<Expo> = {}): Expo => ({
+    name: 'expo-de-s3',
+    inputPath: 'input/expo-de-s3.json',
+    brief: { title: 'T', durationMinutes: 5, audience: 'a', language: 'es', mustInclude: [] },
+    brand: loadBrandGuide(),
+    brandOverridden: false,
+    sources: loadSources(),
+    userSources: 0,
+    knowledgeDir: 'knowledge/expo-de-s3',
+    outputDir: 'output/expo-de-s3',
+    ...over,
+  });
+
+  it('brief: sin apuntes locales lo dice; los campos opcionales que faltan se ven como —', () => {
+    const { knowledgeDir: _, ...noNotes } = expo();
+    const out = strip(renderToString(<BriefView expo={noNotes} fragments={[]} />, { columns: 120 }));
+    expect(out).toContain('input/expo-de-s3.json');
+    expect(out).toContain('sin apuntes locales');
+    expect(out).toMatch(/objetivo\s+—/);
+    expect(out).toContain('output/expo-de-s3/');
+  });
+
   it('brief: marca los datos de los apuntes que parecen externos', () => {
     const out = strip(
       renderToString(
         <BriefView
-          brief={{ title: 'T', topic: 't', audience: 'a', durationMinutes: 5, objective: 'o', language: 'es', mustInclude: [] }}
+          expo={expo()}
           fragments={[
             { id: 'notes#1', heading: '', text: 'MCP es un protocolo abierto.' },
             { id: 'notes#2', heading: '', text: 'El 90% de las startups usan MCP.' },
@@ -140,6 +165,18 @@ describe('paneles', () => {
     expect(out).toContain('5 minutos');
     expect(out).toContain('⚠ notes#2');
     expect(out).not.toContain('⚠ notes#1');
+  });
+
+  it('apuntes vs. fuentes: ✓/✗/? y, si se detiene, dónde está el resumen', () => {
+    const r = (fragmentId: string, verdict: 'confirmado' | 'inconsistente' | 'sin-respaldo', text: string) => ({ fragmentId, verdict, text, decidedBy: 'codigo' as const, reasons: [] });
+    const reviews = [r('notes#1', 'confirmado', 'MCP es un estándar abierto.'), r('notes#10', 'inconsistente', 'El 90% de las startups…'), r('notes#4', 'sin-respaldo', 'Algo')];
+    const out = strip(renderToString(<NotesReviewTable reviews={reviews} blocking={1} reportPath="output/ejemplo/revision-apuntes.md" />, { columns: 120 }));
+    expect(out).toMatch(/✓\s+notes#1\s+confirmado/);
+    expect(out).toMatch(/✗\s+notes#10\s+inconsistente/);
+    expect(out).toMatch(/\?\s+notes#4\s+sin-respaldo/);
+    expect(out).toContain('El proceso se detuvo: 1 apunte(s) por corregir');
+    expect(out).toContain('output/ejemplo/revision-apuntes.md');
+    expect(strip(renderToString(<NotesReviewTable reviews={reviews.slice(0, 1)} blocking={0} reportPath="x" />, { columns: 120 }))).not.toContain('se detuvo');
   });
 
   it('bedrock: costo por modelo y la línea de config a cambiar', () => {

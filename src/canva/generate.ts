@@ -57,6 +57,8 @@ export interface CanvaResult {
   editUrl?: string;
   pages?: number;
   thumbnails?: string[];
+  /** Título puesto al diseño (el nombre de la exposición); ausente si no se pidió o si falló el renombrado. */
+  title?: string;
   error?: string;
 }
 
@@ -65,11 +67,14 @@ export interface GenerateOptions {
   timeoutMs: number;
   /** Espera entre consultas; en replay se escala con replay.speed. */
   sleep: (ms: number) => Promise<void>;
+  /** Título del diseño. create-design no lo acepta: se pone después con una transacción de edición. */
+  title?: string;
 }
 
 /**
  * Un solo camino: create-design (outline) → get-create-design-async-job respetando polling_policy.wait_seconds
- * → get-design-pages (verifica cuántas slides salieron). Nunca lanza: los fallos vuelven como { ok: false }.
+ * → get-design-pages (verifica cuántas slides salieron) → título del diseño (opcional, ver renameDesign).
+ * Nunca lanza: los fallos vuelven como { ok: false }.
  */
 export async function generateSlides(input: CanvaDesignInput, call: CanvaCaller, opts: GenerateOptions): Promise<CanvaResult> {
   const t0 = performance.now();
@@ -115,6 +120,7 @@ export async function generateSlides(input: CanvaDesignInput, call: CanvaCaller,
       },
     );
     const list = (Array.isArray(pages.pages) ? pages.pages : Array.isArray(pages.items) ? pages.items : []) as { thumbnail?: { url?: string } }[];
+    const titled = opts.title ? await renameDesign(design.id, opts.title, step, call) : false;
     return {
       ok: true,
       seconds: elapsed(),
@@ -123,8 +129,45 @@ export async function generateSlides(input: CanvaDesignInput, call: CanvaCaller,
       ...(design.edit_url ? { editUrl: design.edit_url } : {}),
       pages: list.length,
       thumbnails: list.flatMap((p) => (p.thumbnail?.url ? [p.thumbnail.url] : [])),
+      ...(titled ? { title: opts.title } : {}),
     };
   } catch (err) {
     return { ok: false, seconds: elapsed(), error: (err as Error).message };
+  }
+}
+
+type Step = (
+  name: string,
+  args: Record<string, unknown>,
+  detail: unknown,
+  verdict?: (r: Record<string, unknown>) => { ok: boolean; note?: string },
+) => Promise<Record<string, unknown>>;
+
+/**
+ * Título del diseño: start-editing-transaction → perform-editing-operations (update_title) → commit.
+ * Las slides ya existen, así que un fallo aquí no tumba el acto: queda ✗ en la traza y se cancela la transacción.
+ */
+async function renameDesign(designId: string, title: string, step: Step, call: CanvaCaller): Promise<boolean> {
+  let transactionId: string | undefined;
+  try {
+    const tx = await step('start-editing-transaction', { design_id: designId, user_intent: 'Poner el título del diseño' }, { claim: designId });
+    transactionId = String(tx.transaction_id ?? '');
+    if (!transactionId) throw new Error('Canva no devolvió transaction_id.');
+    await step(
+      'perform-editing-operations',
+      {
+        transaction_id: transactionId,
+        operations: [{ type: 'update_title', title }],
+        page_index: 1,
+        ...(Array.isArray(tx.pages) ? { pages: tx.pages } : {}),
+        user_intent: `Titular el diseño "${title}"`,
+      },
+      { claim: `título «${title}»` },
+    );
+    await step('commit-editing-transaction', { transaction_id: transactionId, user_intent: 'Guardar el título del diseño' }, { claim: title });
+    return true;
+  } catch {
+    if (transactionId) await call('cancel-editing-transaction', { transaction_id: transactionId, user_intent: 'Descartar el título fallido' }).catch(() => {});
+    return false;
   }
 }

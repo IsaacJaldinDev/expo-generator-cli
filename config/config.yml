@@ -5,6 +5,11 @@ aws:
   profile: expo-generator
   region: us-east-2
 
+expo:
+  # Exposición activa: input/<active>.json (apuntes en knowledge/<active>/, salida en output/<active>/).
+  # `--expo=<nombre>` la sobreescribe en cada comando.
+  active: ejemplo
+
 model:
   # Cambio de modelo en vivo (Acto 5): edita SOLO esta línea → mistral | nova
   active: mistral
@@ -47,6 +52,11 @@ critic:
   # Modelo del crítico (clave de model.options). Vacío = el mismo modelo activo del agente.
   model: ""
   maxCalls: 2 # llamadas a critique_voice por ejecución
+
+notesReview:
+  # Acto 2: tus apuntes se contrastan con las fuentes. Estos veredictos detienen el proceso hasta que los corrijas
+  # (resumen en output/<expo>/revision-apuntes.md). Agrega sin-respaldo para exigir fuente a todo dato.
+  stopOn: [inconsistente]
 
 replay:
   # Velocidad del replay: 1 = latencias reales grabadas; 2 = el doble de rápido; 0 = instantáneo.

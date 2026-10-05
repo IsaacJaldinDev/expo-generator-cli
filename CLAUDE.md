@@ -30,6 +30,74 @@ obligación de revisar su propio trabajo.** Prioridad: confiabilidad en vivo > c
   hasta que el autor lo pida. Ruta prevista: `OpenAIModel` de Strands con `api: 'chat'` y
   `clientConfig.baseURL = 'http://localhost:11434/v1'` (requiere el peer `openai`). Ver `docs/ollama.md`.
 
+## Exposiciones: input/, knowledge/, output/ (fase 6b)
+
+- **Una exposición = un nombre** (`expo-de-s3`). El nombre se usa en cuatro lugares:
+  - `input/<nombre>.json`: el brief. Basta con `title` + `durationMinutes`; `topic`, `audience`, `objective`,
+    `mustInclude` y `callToAction` lo enriquecen. Se valida con un esquema `.strict()`, así que una clave mal
+    escrita da error con el nombre del campo.
+  - `knowledge/<nombre>/*.md`: los apuntes del autor. Si la carpeta no existe, el agente trabaja sin apuntes
+    locales: `read_knowledge` devuelve 0 fragmentos con una nota.
+  - `output/<nombre>/`: `deck.json`, `claims.json`, `script.md` y `timing.md`.
+  - Título del diseño en Canva.
+- Voz (`voice/`) global. Guía visual: `config/brand-guide.yml` por defecto; `brand` en el input la sobreescribe
+  campo a campo.
+- **Fuentes por tema** (`config/sources.yml`):
+  - `topics.<tema>` tiene `label`, `domains` por tier y `seeds`. Temas: inteligencia-artificial, tecnologia,
+    bases-de-datos, cloud, medicina, biologia. Las semillas se verificaron el 2026-10-05: responden 200 y el texto se
+    extrae sin JavaScript. NCBI Bookshelf y sqlite.org devuelven páginas casi vacías; ACM y nih.gov, 403.
+  - Un dominio tiene un solo tier en todo el catálogo (se valida al cargarlo).
+  - El input elige `topics`; sin `topics` entran todos (36 semillas: la primera búsqueda es más lenta).
+  - `sources` en el input agrega fuentes del autor: semilla + su dominio a la allowlist, con el tier del catálogo
+    si ya existe o `aportada` si no.
+  - `resolveSources` (`src/schemas/sources.ts`) produce el mismo `Sources` de antes: `SourceLibrary` no cambió.
+- Exposición activa: `expo.active` en `config.yml` (una línea, como `model.active`); `--expo=<nombre>` la sobreescribe.
+- `output/runs.jsonl` es único para todas las exposiciones (cada registro trae `expo`): el Acto 5 compara modelos, no temas.
+- Git: `input/*`, `knowledge/*` y `output/*` ignorados; se versionan `input/ejemplo.json` y `knowledge/ejemplo/`.
+- Canva: `create-design` no acepta título. Se pone después con `start-editing-transaction` →
+  `perform-editing-operations` (`update_title`, `page_index: 1`, `pages` de la transacción) → `commit-editing-transaction`.
+  Si falla, las slides quedan igual (✗ en la traza + `cancel-editing-transaction`).
+  **Sin verificar en vivo todavía**; el cassette `canva.json` previo no tiene esas llamadas, así que en replay se verá ✗ en el título hasta volver a grabarlo.
+- Limitación: `research` solo busca en las semillas de los temas elegidos y en las aportadas. Si ninguna trata el
+  tema de la charla, no llega a `minExternalClaims`.
+
+## Revisión de apuntes contra las fuentes (fase 6b, acto 2)
+
+- **Cobertura total exigida en código.** Cada fragmento de los apuntes termina de una de dos formas:
+  - Revisado con `review_note`: research → pasaje + relación `supports` o `contradicts`, o sin pasaje.
+  - Marcado como propio con `mark_own_notes` (ideas, experiencias, opiniones; todos en una llamada). Un fragmento
+    con cifras, % o años no se puede marcar como propio.
+
+  La compuerta del acto 2 no deja terminar hasta que no queden pendientes.
+- **El veredicto lo arma el código** (`src/tools/review-note.ts`):
+
+  | Caso | Veredicto | Decide |
+  |---|---|---|
+  | `supports` + verificación OK (cita, cifras, grounding; `verifyAgainstPassage`, compartido con `record_claim`) | confirmado | código |
+  | `supports` + verificación fallida | sin-respaldo | código |
+  | `contradicts` | inconsistente | modelo |
+  | sin pasaje | sin-respaldo | modelo |
+
+  - Confirmado: además se registra un claim externo con `knowledgeRef`; no ocupa cupo de `maxExternalClaims`.
+  - `supports` fallido no es inconsistente: en real, apuntes correctos quedaban con grounding 0.68–0.71 contra fuentes en inglés.
+  - `contradicts` es juicio, no aritmética: el autor ve el pasaje y decide.
+- **Detener el proceso:**
+  - `notesReview.stopOn` (default `[inconsistente]`). Con un veredicto de esa lista, la etapa research termina en
+    ✗ aunque falten claims. Le toca al autor.
+  - `notesGate` impide el acto 3 (deck nuevo) si no hay revisión, si los apuntes cambiaron (huella sha256 de los
+    fragmentos en disco), si quedó incompleta (`pending`) o si hay veredictos bloqueantes.
+  - Las ediciones (acto 4) no pasan por la compuerta.
+- **Salida en `output/<expo>/`:**
+  - `notes-review.json`: el contrato.
+  - `revision-apuntes.md`: el resumen. Primero inconsistencias (con el pasaje), después sin respaldo y confirmados.
+  - `apuntes-validos/<archivo>.md`: solo confirmados + propios, con el mismo formato y la fuente como `<!-- -->`
+    (read_knowledge ignora esas líneas). Listo para copiar a `knowledge/<expo>/` y agregar las correcciones.
+- Medido en real (Mistral, ejemplo de MCP): 50–60 s, ~$0.04–0.07.
+  - En otra prueba, con 2 apuntes falsos ("XML-RPC", "no existe el host"), el modelo detectó los dos en 21 s.
+  - El dato sembrado del 90% sale a veces `inconsistente` y a veces `sin-respaldo`: depende de cómo lo etiquete el modelo.
+- Visto en real: Mistral a veces emite JSON inválido en `toolUse` (`ModelError: unable to parse tool input JSON`) y
+  la ejecución se corta. Candidato a reintento en la fase 7.
+
 ## Bedrock Guardrails — diseño híbrido (aprobado en fase 0)
 
 Verificado en la documentación de AWS: Converse **no evalúa** `toolResult` ni `toolUse.input` con ningún filtro.
@@ -106,7 +174,7 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
 
 ## Procedencia (fase 2)
 
-- `config/sources.yml`: allowlist de dominios (coincidencia exacta del host, solo https) con el tier de cada uno, más las URLs semilla verificadas.
+- `config/sources.yml`: allowlist de dominios por tema (coincidencia exacta del host, solo https) con el tier de cada uno, más las URLs semilla verificadas (ver "Exposiciones").
   `research` nunca sale de ahí. El modo con API key se agrega detrás de `SearchProvider` (`src/research/search.ts`).
 - **`record_claim` recibe `passageId`, no una cita libre.** En las pruebas reales, Mistral y Nova inventaban o
   parafraseaban citas de memoria. Ahora el modelo solo puede elegir un pasaje real que devolvió `research`.
@@ -185,7 +253,8 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
 ## Comandos
 
 - Node 24 LTS (`.nvmrc`); npm (sin corepack/pnpm: un punto de fallo menos el día de la charla).
-- `npm run demo -- <acto>` (la demo) · `npm run agent [-- --fresh | --act=research|deck | "instrucción" | --scope=a,b | --no-guardrail]` (consola, desarrollo) → `output/deck.json`, `claims.json`, `script.md`, `timing.md`
+- Todos los comandos aceptan `--expo=<nombre>` (por defecto `expo.active`).
+- `npm run demo -- <acto>` (la demo) · `npm run agent [-- --fresh | --act=research|deck | "instrucción" | --scope=a,b | --no-guardrail]` (consola, desarrollo) → `output/<expo>/deck.json`, `claims.json`, `script.md`, `timing.md`
 - `npm run typecheck` · `npm test` · `npm run spike:agent [-- --guardrail]` · `npm run spike:guardrail` · `npm run spike:canva [-- --reset]`
 - Tests sin AWS: `src/replay/scripted-model.ts` reproduce turnos guionizados por el loop real de Strands
   (base del modo `--replay` de la fase 7).

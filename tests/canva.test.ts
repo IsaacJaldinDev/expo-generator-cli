@@ -101,6 +101,47 @@ describe('generateSlides (create-design → job → páginas)', () => {
     expect(r.error).toMatch(/no terminó en/);
   });
 
+  it('título: transacción de edición con update_title después de verificar las páginas', async () => {
+    const calls: { name: string; args: Record<string, unknown> }[] = [];
+    const answers: Record<string, Record<string, unknown>> = {
+      'create-design': { job_id: 'j', status: 'completed', design: { id: 'DAH12345678', url: 'https://canva.link/x' } },
+      'get-design-pages': pages,
+      'start-editing-transaction': { transaction_id: 'tx1', pages: [{ page_id: 'p1', is_responsive: false }] },
+      'perform-editing-operations': {},
+      'commit-editing-transaction': {},
+    };
+    const call: CanvaCaller = async (name, args) => (calls.push({ name, args }), answers[name]!);
+    const r = await generateSlides(input, call, { sink: () => {}, timeoutMs: 60_000, sleep: async () => {}, title: 'expo-de-s3' });
+
+    expect(r).toMatchObject({ ok: true, title: 'expo-de-s3' });
+    expect(calls.map((c) => c.name)).toEqual(['create-design', 'get-design-pages', 'start-editing-transaction', 'perform-editing-operations', 'commit-editing-transaction']);
+    expect(calls[3]!.args).toMatchObject({
+      transaction_id: 'tx1',
+      page_index: 1,
+      operations: [{ type: 'update_title', title: 'expo-de-s3' }],
+      pages: [{ page_id: 'p1', is_responsive: false }],
+    });
+  });
+
+  it('título: si falla, las slides igual quedan (ok: true, sin título) y se cancela la transacción', async () => {
+    const calls: string[] = [];
+    const events: TraceEvent[] = [];
+    const call: CanvaCaller = async (name) => {
+      calls.push(name);
+      if (name === 'create-design') return { job_id: 'j', status: 'completed', design: { id: 'DAH12345678' } };
+      if (name === 'get-design-pages') return pages;
+      if (name === 'start-editing-transaction') return { transaction_id: 'tx1' };
+      if (name === 'perform-editing-operations') throw new Error('Canva respondió con error: título inválido');
+      return {};
+    };
+    const r = await generateSlides(input, call, { sink: (e) => events.push(e), timeoutMs: 60_000, sleep: async () => {}, title: 'x' });
+
+    expect(r.ok).toBe(true);
+    expect(r.title).toBeUndefined();
+    expect(calls.at(-1)).toBe('cancel-editing-transaction');
+    expect(events.find((e) => e.kind === 'tool-end' && e.name === 'perform-editing-operations')).toMatchObject({ ok: false });
+  });
+
   it('errores del MCP (isError) se vuelven mensajes legibles', () => {
     expect(() => parseToolResult({ isError: true, content: [{ type: 'text', text: 'rate limited' }] })).toThrow(/rate limited/);
     expect(parseToolResult({ content: [{ type: 'text', text: '{"a":1}' }] })).toEqual({ a: 1 });
