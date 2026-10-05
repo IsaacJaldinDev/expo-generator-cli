@@ -76,5 +76,5 @@ canva:
   redirectPort: 33418
   # Tokens OAuth: fuera del repo, permisos 0600
   tokenDir: ~/.config/expo-generator/canva
-  timeoutMs: 60000
+  timeoutMs: 180000 # create-design tarda ~45 s; el timeout cubre consultas lentas sin cortar en vivo
   fallbackDeckUrl: "" # URL del deck pregenerado de 35 minutos

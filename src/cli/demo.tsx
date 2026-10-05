@@ -6,7 +6,7 @@
  *   npm run demo -- edit "Haz el inicio más provocador"   # 4 · edición conversacional + diff
  *   npm run demo -- bedrock                    # 5 · costo y cambio de modelo
  *   npm run demo -- guardrails [escenario|all] # 6 · Bedrock Guardrails (--record / --replay)
- *   npm run demo -- canva                      # 7 · (fase 6)
+ *   npm run demo -- canva                      # 7 · 3 slides en Canva vía MCP (--record / --replay)
  *   npm run demo -- full                       # 2 + 3 seguidos
  * Flags: --no-guardrail · --scope=hook,cierre
  */
@@ -20,7 +20,14 @@ import { createEventBus, RunApp, type ResultPanel } from './ui/RunApp.tsx';
 import { ScenarioApp } from './ui/ScenarioApp.tsx';
 import { listScenarios } from '../guardrails/scenarios.ts';
 import type { RunMode } from '../guardrails/scenario-context.ts';
-import { createSession, loadRuns, type SessionOptions, type SessionOutcome } from './session.ts';
+import { createSession, loadRuns, recordRun, type SessionOptions, type SessionOutcome } from './session.ts';
+import { DeckStore } from '../agent/deck-store.ts';
+import { emptyUsage } from '../agent/cost.ts';
+import { loadBrandGuide } from '../schemas/brand.ts';
+import { renderCanvaInput } from '../render/canva.ts';
+import type { CanvaResult } from '../canva/generate.ts';
+import { runCanva } from '../canva/run.ts';
+import { CanvaApp } from './ui/CanvaApp.tsx';
 
 const ALIASES: Record<string, string> = { '1': 'brief', '2': 'research', '3': 'plan', '4': 'edit', '5': 'bedrock', '6': 'guardrails', '7': 'canva' };
 const args = process.argv.slice(2);
@@ -110,9 +117,34 @@ switch (act) {
     if (!ok) process.exitCode = 1;
     break;
   }
-  case 'canva':
-    await show(<Text color="yellow">El acto "canva" llega en la fase 6.</Text>);
-    break;
+  case 'canva': {
+    const mode = args.includes('--record') ? 'record' : args.includes('--replay') ? 'replay' : 'live';
+    const cfg = loadConfig();
+    const brand = loadBrandGuide();
+    const store = DeckStore.load('output', loadBrief().title);
+    if (store.deck.sections.length === 0) {
+      console.error('No hay deck en output/: corre primero el acto 3 (npm run demo -- plan) o carga un checkpoint.');
+      process.exitCode = 1;
+      break;
+    }
+    const input = renderCanvaInput(store.deck, brand);
+    let result: CanvaResult | undefined;
+    const app = render(
+      <CanvaApp
+        brand={brand}
+        input={input}
+        mode={mode === 'replay' ? 'REPLAY (cassette)' : mode === 'record' ? 'grabando cassette' : 'en vivo'}
+        fallbackUrl={cfg.canva.fallbackDeckUrl}
+        run={(sink) => runCanva(cfg, input, mode, sink)}
+        onDone={(r) => (result = r)}
+      />,
+      { exitOnCtrlC: true },
+    );
+    await app.waitUntilExit();
+    if (result) recordRun('output', { at: new Date().toISOString(), act: 'canva', model: 'canva-mcp', modelId: mode, seconds: result.seconds, stages: [], usage: emptyUsage(), costUsd: 0, ok: result.ok });
+    // El transporte HTTP del MCP puede dejar handles abiertos: el acto termina aquí.
+    process.exit(result?.ok ? 0 : 1);
+  }
   default:
     await show(
       <Box flexDirection="column">

@@ -57,16 +57,24 @@ Por eso:
   `CachePointBlock` manual (y Nova no cachea `tools`).
 - `McpClient({ url, authProvider })` crea un `StreamableHTTPClientTransport`. Solo hay `signal` por llamada, sin timeout propio.
 
-## Canva MCP
+## Canva MCP (fase 6)
 
-`https://mcp.canva.com/mcp`, Streamable HTTP, OAuth 2.1 + PKCE con registro dinámico de cliente (Canva lo
-marca *deprecated* pero disponible). `src/canva/oauth.ts` implementa `OAuthClientProvider` con callback en
-`127.0.0.1:${canva.redirectPort}`. Plan B: `npx mcp-remote https://mcp.canva.com/mcp` por stdio.
-Verificado en fase 0: el OAuth con callback local + registro dinámico funciona, los tokens se reutilizan sin navegador y hay 49 herramientas.
-Schemas reales en `docs/canva-tools.json`. Para la fase 6 hay dos caminos:
-- `generate-design` (`design_type: presentation`, `length: short` = 1–5 slides) → candidatos → `create-design-from-candidate`.
-- `create-design`, que acepta un `outline` estructurado y corre como job asíncrono (`get-create-design-async-job`).
-Hay que elegir uno solo.
+`https://mcp.canva.com/mcp`, Streamable HTTP, OAuth 2.1 + PKCE con registro dinámico de cliente. `src/canva/oauth.ts`
+implementa `OAuthClientProvider` con callback en `127.0.0.1:${canva.redirectPort}`. Los tokens se refrescan solos.
+
+- **Un solo camino:** `create-design` con `outline` → `get-create-design-async-job` (respetando
+  `polling_policy.wait_seconds`) → `get-design-pages` (verifica que salieron 3 slides). `generate-design` y
+  `create-design-from-candidate` son LEGACY según la propia descripción de Canva y no se usan.
+- **`src/render/canva.ts` (código):**
+  - Elige las 3 slides: hook, la de arquitectura (la slide de desarrollo que más habla de host/cliente/servidor) y cierre.
+  - Escribe en el brief los hex de `brand-guide.yml`, las fuentes y el mood. Limpia viñetas y marcadores.
+  - Verificado mirando las miniaturas: Canva respeta fondo `#F6F7EB`, títulos y acentos `#E94F37`, texto `#393E41`.
+- **`src/canva/generate.ts`:**
+  - Determinista: lo llama el código, no el LLM, porque prima la confiabilidad. Emite la traza.
+  - Nunca lanza: si falla, la UI muestra un mensaje limpio y `canva.fallbackDeckUrl`.
+  - Generar tarda ~45–50 s; `canva.timeoutMs` es de 180 s.
+- `npm run demo -- canva [--record|--replay]`. El cassette `demo/cassettes/canva.json` reproduce con el ritmo
+  real (`replay.speed`). El acto termina con `process.exit` porque el transporte HTTP del MCP puede dejar handles abiertos.
 
 ## Modelos y guardrail verificados (fase 0)
 
@@ -155,7 +163,7 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
   | `edit "…"` | 4 | Edición con diff |
   | `bedrock` | 5 | Costo por modelo + la línea de config a cambiar |
   | `guardrails [esc|all]` | 6 | Escenarios de Bedrock Guardrails (`--record`/`--replay`) |
-  | `canva` | 7 | — |
+  | `canva` | 7 | 3 slides en Canva vía MCP (`--record`/`--replay`) |
   | `full` | 2 + 3 | — |
 
 - **Arquitectura:**

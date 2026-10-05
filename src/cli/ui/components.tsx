@@ -12,6 +12,9 @@ import { formatLink, type ChainLink } from './chain.ts';
 import { textOf, type SectionDiff } from './diff.ts';
 import type { Row } from './rows.ts';
 
+/** Nombres reales de herramientas demasiado largos para la columna: se abrevian solo al mostrarlos. */
+const DISPLAY_NAME: Record<string, string> = { 'get-create-design-async-job': 'get-design-job' };
+
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const usd = (n: number) => `$${n.toFixed(n < 0.01 ? 4 : 3)}`;
@@ -45,8 +48,8 @@ function RowView({ row, columns }: { row: Row; columns: number }) {
         <Box>
           <Box width={3}>{row.status === 'running' ? <Spinner /> : <Text color={row.status === 'ok' ? 'green' : 'red'}>{row.status === 'ok' ? '✓' : '✗'}</Text>}</Box>
           <Box width={17}>
-            <Text bold color={row.status === 'fail' ? 'red' : 'cyan'}>
-              {row.name}
+            <Text bold color={row.status === 'fail' ? 'red' : 'cyan'} wrap="truncate-end">
+              {DISPLAY_NAME[row.name] ?? row.name}
             </Text>
           </Box>
           <Box width={Math.max(10, columns - 3 - 17 - 8)}>

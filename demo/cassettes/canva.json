@@ -1,0 +1,120 @@
+{
+ "version": 1,
+ "name": "canva",
+ "recordedAt": "2026-10-05T04:19:32.706Z",
+ "model": {
+  "calls": []
+ },
+ "guardrail": [],
+ "pages": [],
+ "mcp": [
+  {
+   "name": "create-design",
+   "result": {
+    "job_id": "52bd97b2-2ecb-4522-9145-6122df4b14a2",
+    "status": "pending",
+    "continuation_token": "eyJuYiI6MTc5MTE3Mzk0MCwic2VxIjoxLCJzIjpudWxsfQ",
+    "polling_policy": {
+     "wait_seconds": 15,
+     "instructions": "The design generation job has started. Wait at least 15 seconds before the first poll. Do not call get-create-design-async-job before then: an earlier call returns the same answer and does not make the design arrive sooner."
+    }
+   },
+   "ms": 1220
+  },
+  {
+   "name": "get-create-design-async-job",
+   "result": {
+    "job_id": "52bd97b2-2ecb-4522-9145-6122df4b14a2",
+    "status": "in_progress",
+    "continuation_token": "eyJuYiI6MTc5MTE3Mzk1MCwic2VxIjoyLCJzIjpudWxsfQ",
+    "polling_policy": {
+     "wait_seconds": 10,
+     "instructions": "The design is being generated now. Wait at least 10 seconds before polling again. Do not call get-create-design-async-job before then: an earlier call returns the same answer and does not make the design arrive sooner."
+    }
+   },
+   "ms": 404
+  },
+  {
+   "name": "get-create-design-async-job",
+   "result": {
+    "job_id": "52bd97b2-2ecb-4522-9145-6122df4b14a2",
+    "status": "in_progress",
+    "continuation_token": "eyJuYiI6MTc5MTE3Mzk2MSwic2VxIjozLCJzIjpudWxsfQ",
+    "polling_policy": {
+     "wait_seconds": 10,
+     "instructions": "The design is being generated now. Wait at least 10 seconds before polling again. Do not call get-create-design-async-job before then: an earlier call returns the same answer and does not make the design arrive sooner."
+    }
+   },
+   "ms": 403
+  },
+  {
+   "name": "get-create-design-async-job",
+   "result": {
+    "job_id": "52bd97b2-2ecb-4522-9145-6122df4b14a2",
+    "status": "in_progress",
+    "continuation_token": "eyJuYiI6MTc5MTE3Mzk3MSwic2VxIjo0LCJzIjpudWxsfQ",
+    "polling_policy": {
+     "wait_seconds": 10,
+     "instructions": "The design is being generated now. Wait at least 10 seconds before polling again. Do not call get-create-design-async-job before then: an earlier call returns the same answer and does not make the design arrive sooner."
+    }
+   },
+   "ms": 418
+  },
+  {
+   "name": "get-create-design-async-job",
+   "result": {
+    "job_id": "52bd97b2-2ecb-4522-9145-6122df4b14a2",
+    "status": "completed",
+    "design": {
+     "id": "DAHXHExzDjI",
+     "url": "https://canva.link/5c7htnt4bw5xhst",
+     "edit_url": "https://canva.link/5c7htnt4bw5xhst"
+    }
+   },
+   "ms": 422
+  },
+  {
+   "name": "get-design-pages",
+   "result": {
+    "items": [
+     {
+      "id": "PB1Cz27Kb0ndpF4L",
+      "index": 1,
+      "page_number": 1,
+      "dimensions": {
+       "width": 1920,
+       "height": 1080
+      },
+      "thumbnail": {
+       "width": 595,
+       "height": 335,
+       "url": "https://media.canva.com/v2/document-image/hash:-1348838783/height:335/id:DAHXHExzDjI/type:B/width:595?brand=BAHLi5h3HVQ&csig=AAAAAAAAAAAAAAAAAAAAAJT42qdo7AOWdE_2m9VZzVJYVR7JNDSTg0NCUlp_EsYj&disableexport=T&exp=1791174872&fallback=https%3A%2F%2Fs3.amazonaws.com%2Fdocument-export.canva.com%2FxzDjI%2FDAHXHExzDjI%2F1%2Fthumbnail%2F0001.png%3FX-Amz-Algorithm%3DAWS4-HMAC-SHA256%26X-Amz-Credential%3DAKIAQYCGKMUHTDF2ZFFQ%252F20261005%252Fus-east-1%252Fs3%252Faws4_request%26X-Amz-Date%3D20261005T002639Z%26X-Amz-Expires%3D17573%26X-Amz-Signature%3D1701944be362a2854b287f3e4ccee74853e2f52ea807ac9fb3d62badbfd12a4b%26X-Amz-SignedHeaders%3Dhost%26response-expires%3DMon%252C%252005%2520Oct%25202026%252005%253A19%253A32%2520GMT&fallbackstale=T&osig=AAAAAAAAAAAAAAAAAAAAAMs-sXEruuzaPei6J7puNU-2vfDcadu-KYnKnQp_vdWM&page=1&signed=brand%2Cdisableexport%2Cfallback%2Cfallbackstale%2Cpage%2Cversion&signer=document-rpc&version=2"
+      },
+      "design_type": "presentation"
+     },
+     {
+      "id": "PBYBsdWPSP7fZcSP",
+      "index": 2,
+      "page_number": 2,
+      "dimensions": {
+       "width": 1920,
+       "height": 1080
+      },
+      "design_type": "presentation"
+     },
+     {
+      "id": "PB4JRXqpFM3Rdxf6",
+      "index": 3,
+      "page_number": 3,
+      "dimensions": {
+       "width": 1920,
+       "height": 1080
+      },
+      "design_type": "presentation"
+     }
+    ]
+   },
+   "ms": 762
+  }
+ ]
+}

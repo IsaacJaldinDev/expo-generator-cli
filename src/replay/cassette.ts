@@ -18,6 +18,8 @@ export interface Cassette {
   /** `ms`: latencia real, para reproducir con el mismo ritmo. */
   guardrail: { key: string; op: 'check' | 'ground'; ms?: number; result: GuardrailCheckResult | GroundingResult }[];
   pages: { url: string; body: string }[];
+  /** Llamadas al MCP de Canva, en orden, con su latencia real. */
+  mcp?: { name: string; result: unknown; ms: number }[];
 }
 
 export const emptyCassette = (name: string): Cassette => ({
