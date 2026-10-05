@@ -5,7 +5,7 @@ import type { TraceEvent } from '../agent/events.ts';
 export function consoleTrace(e: TraceEvent): void {
   switch (e.kind) {
     case 'tool-start':
-      console.log(styleText('cyan', `→ ${e.name}`), styleText('dim', short(e.input)));
+      console.log(styleText('cyan', `→ ${e.name}`), styleText('dim', describeInput(e.input)));
       break;
     case 'tool-end':
       console.log(
@@ -48,6 +48,17 @@ export function consoleTrace(e: TraceEvent): void {
       console.log(styleText('dim', e.message));
       break;
   }
+}
+
+/** update_section muestra la sección y qué campos cambia; el resto, el JSON recortado. */
+function describeInput(input: unknown): string {
+  const o = input as Record<string, unknown> | undefined;
+  if (o && typeof o.sectionId === 'string') {
+    const fields = Object.keys(o).filter((k) => k !== 'sectionId');
+    const slides = Array.isArray(o.slides) ? ` (${o.slides.length} slides)` : '';
+    return `[${o.sectionId}] ${fields.join(', ')}${slides}`;
+  }
+  return short(input);
 }
 
 const short = (v: unknown, max = 90): string => {

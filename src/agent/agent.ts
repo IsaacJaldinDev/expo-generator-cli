@@ -1,6 +1,7 @@
 import { Agent, type Model, type SystemPrompt } from '@strands-agents/sdk';
 import { z } from 'zod';
 import { checkTimingTool } from '../tools/check-timing.ts';
+import { critiqueVoiceTool } from '../tools/critique-voice.ts';
 import type { ToolDeps } from '../tools/deps.ts';
 import { readKnowledgeTool } from '../tools/read-knowledge.ts';
 import { recordClaimTool } from '../tools/record-claim.ts';
@@ -51,6 +52,7 @@ export function createExpoAgent(deps: ExpoAgentDeps) {
       updateSectionTool(deps),
       checkTimingTool(deps),
       validateDeckTool(deps),
+      critiqueVoiceTool(deps),
     ],
     structuredOutputSchema: RunSummarySchema,
     // update_section escribe deck.json: secuencial para que el orden de la traza sea el real

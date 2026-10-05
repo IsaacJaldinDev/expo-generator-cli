@@ -28,6 +28,9 @@ import { loadKnowledgeFragments } from '../src/tools/read-knowledge.ts';
 import { httpFetcher } from '../src/research/pages.ts';
 import { SourceLibrary } from '../src/research/search.ts';
 import { loadSources } from '../src/schemas/sources.ts';
+import { readFileSync } from 'node:fs';
+import { buildRubric, createCritic } from '../src/providers/critic.ts';
+import { loadFillers } from '../src/validators/voice-lint.ts';
 import { validateDeck } from '../src/validators/deck-rules.ts';
 
 const OUTPUT = 'output';
@@ -44,7 +47,12 @@ if (noGuardrail) cfg.guardrail.enabled = false;
 const brief = loadBrief();
 const m = activeModel(cfg);
 const sources = loadSources();
-const params = deckParams(cfg, brief, loadBrandGuide(), sources);
+const params = deckParams(cfg, brief, loadBrandGuide(), sources, loadFillers());
+const critic = createCritic(
+  cfg.critic.provider,
+  () => createAgentModel(cfg, { guardrail: false, ...(cfg.critic.model ? { modelKey: cfg.critic.model } : {}) }),
+  buildRubric(readFileSync('voice/examples.md', 'utf8'), readFileSync('voice/anti-patterns.md', 'utf8')),
+);
 const library = new SourceLibrary(sources, httpFetcher(sources.limits.fetchTimeoutMs));
 
 if (fresh) for (const f of ['deck.json', 'claims.json', 'script.md', 'timing.md']) rmSync(`${OUTPUT}/${f}`, { force: true });
@@ -79,6 +87,7 @@ const { agent, abort, gate, invokeOptions } = createExpoAgent({
   outputDir: OUTPUT,
   knowledgeDir: 'knowledge',
   research: { sources, library },
+  critic: { provider: critic, maxCalls: cfg.critic.maxCalls },
   stage,
   sink,
   ...(cfg.guardrail.enabled ? { checker: createGuardrailChecker(cfg) } : {}),
@@ -157,7 +166,9 @@ function finish(): void {
     }
   }
   const v = validateDeck(store.deck, store.claims, params);
-  const changed = [...new Set(store.changes.map((c) => `${c.sectionId} (${c.action})`))];
+  const counts = new Map<string, number>();
+  for (const c of store.changes) counts.set(c.sectionId, (counts.get(c.sectionId) ?? 0) + 1);
+  const changed = [...counts].map(([id, n]) => (n > 1 ? `${id} ×${n}` : id));
   console.log(styleText('bold', '\nSecciones tocadas:'), changed.length ? changed.join(', ') : 'ninguna');
   console.log('\n' + renderTiming(store.deck, params));
   console.log(

@@ -8,8 +8,8 @@ export interface AgentModelOptions {
 }
 
 /** Crea el BedrockModel del agente a partir de config.yml. Cambiar model.active cambia de Claude a Nova. */
-export function createAgentModel(cfg: Config, opts: AgentModelOptions = {}): BedrockModel {
-  const m = activeModel(cfg);
+export function createAgentModel(cfg: Config, opts: AgentModelOptions & { modelKey?: string } = {}): BedrockModel {
+  const m = opts.modelKey ? { key: opts.modelKey, ...cfg.model.options[opts.modelKey]! } : activeModel(cfg);
   const options: BedrockModelOptions = {
     modelId: m.modelId,
     region: cfg.aws.region,

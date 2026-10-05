@@ -43,7 +43,16 @@ guardrail:
   pricing: { contentFilters: 0.15, deniedTopics: 0.15, sensitiveInfo: 0.10, contextualGrounding: 0.10 }
 
 critic:
-  provider: bedrock # bedrock | ollama (ollama: aún no implementado)
+  provider: bedrock # bedrock | ollama (ollama: aún no implementado, ver docs/ollama.md)
+  # Modelo del crítico (clave de model.options). Vacío = el mismo modelo activo del agente.
+  model: ""
+  maxCalls: 2 # llamadas a critique_voice por ejecución
+
+voice:
+  maxSentenceWords: 30 # más largo → aviso (no se dice en una respiración)
+  maxTriadsPerSection: 1
+  maxNotXButY: 1 # "No es X, es Y" en todo el deck
+  maxRhetoricalQA: 1 # pregunta retórica + respuesta inmediata en todo el deck
 
 timing:
   wordsPerMinute: 135

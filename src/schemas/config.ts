@@ -39,7 +39,18 @@ export const ConfigSchema = z
     }),
     critic: z.object({
       provider: z.enum(['bedrock', 'ollama']).default('bedrock'),
+      /** Clave de model.options; vacío = el modelo activo. */
+      model: z.string().default(''),
+      maxCalls: z.number().int().min(0).default(2),
     }),
+    voice: z
+      .object({
+        maxSentenceWords: z.number().int().positive().default(30),
+        maxTriadsPerSection: z.number().int().min(0).default(1),
+        maxNotXButY: z.number().int().min(0).default(1),
+        maxRhetoricalQA: z.number().int().min(0).default(1),
+      })
+      .default({ maxSentenceWords: 30, maxTriadsPerSection: 1, maxNotXButY: 1, maxRhetoricalQA: 1 }),
     timing: z.object({
       wordsPerMinute: z.number().positive().default(135),
       /** El script debe llenar al menos esta fracción de la duración del brief. */
@@ -68,6 +79,9 @@ export const ConfigSchema = z
         path: ['model', 'active'],
         message: `model.active="${cfg.model.active}" no existe en model.options (${Object.keys(cfg.model.options).join(', ')})`,
       });
+    }
+    if (cfg.critic.model && !(cfg.critic.model in cfg.model.options)) {
+      ctx.addIssue({ code: 'custom', path: ['critic', 'model'], message: `critic.model="${cfg.critic.model}" no existe en model.options` });
     }
     if (cfg.guardrail.enabled && !cfg.guardrail.id) {
       ctx.addIssue({

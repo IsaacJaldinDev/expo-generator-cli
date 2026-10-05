@@ -1,6 +1,7 @@
 import type { DeckStore } from '../agent/deck-store.ts';
 import type { TraceSink } from '../agent/events.ts';
 import type { GuardrailChecker } from '../guardrails/apply.ts';
+import type { CriticModelProvider } from '../providers/critic.ts';
 import type { SourceLibrary } from '../research/search.ts';
 import type { Sources } from '../schemas/sources.ts';
 import type { DeckRuleParams } from '../validators/deck-rules.ts';
@@ -21,6 +22,8 @@ export interface ToolDeps {
    * se escribe, se mide y se valida.
    */
   stage: { current: Stage };
+  /** Crítico de voz (llamada separada). Ausente = critique_voice responde "deshabilitada". */
+  critic?: { provider: CriticModelProvider; maxCalls: number };
   /** Fuentes permitidas y su biblioteca (allowlist, tiers, descarga). */
   research: { sources: Sources; library: SourceLibrary };
 }

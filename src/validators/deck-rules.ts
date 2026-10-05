@@ -2,12 +2,15 @@ import type { Claim } from '../schemas/claims.ts';
 import type { Deck } from '../schemas/deck.ts';
 import { claimMarkers, countWords, looksLikeExternalFact, splitSentences } from './text.ts';
 import { checkTiming, type TimingParams } from './timing.ts';
+import { lintVoice, type VoiceRules } from './voice-lint.ts';
 
 export interface DeckRuleParams extends TimingParams {
   maxWordsPerSlide: number;
   minPurposeWords: number;
   /** El script debe citar al menos estos claims externos verificados (0 = sin exigencia). */
   minExternalClaims: number;
+  /** Voice lint: las muletillas y el abuso de "No es X, es Y" son errores; el resto, avisos. */
+  voice?: VoiceRules;
 }
 
 export interface Issue {
@@ -112,6 +115,13 @@ export function validateDeck(deck: Deck, claims: Claim[], p: DeckRuleParams): De
       where: 'deck',
       message: `El script cita ${citedExternal.size} claims externos verificados; el mínimo es ${p.minExternalClaims}. Investiga los huecos (research → record_claim) y cítalos con [^c-n].`,
     });
+  }
+
+  if (p.voice) {
+    for (const v of lintVoice(deck, p.voice)) {
+      const issue = { rule: `voz:${v.rule}`, where: v.where, message: `${v.message} «${v.quote}»` };
+      (v.severity === 'error' ? errors : warnings).push(issue);
+    }
   }
 
   const timing = checkTiming(deck, p);

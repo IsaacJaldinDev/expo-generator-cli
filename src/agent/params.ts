@@ -5,7 +5,7 @@ import type { Sources } from '../schemas/sources.ts';
 import type { DeckRuleParams } from '../validators/deck-rules.ts';
 
 /** Reúne en un solo lugar los umbrales que usan check_timing, validate_deck y los renderers. */
-export function deckParams(cfg: Config, brief: Brief, brand: BrandGuide, sources: Sources): DeckRuleParams {
+export function deckParams(cfg: Config, brief: Brief, brand: BrandGuide, sources: Sources, fillers: string[] = []): DeckRuleParams {
   return {
     wordsPerMinute: cfg.timing.wordsPerMinute,
     budgetSeconds: Math.round(brief.durationMinutes * 60),
@@ -13,5 +13,6 @@ export function deckParams(cfg: Config, brief: Brief, brand: BrandGuide, sources
     maxWordsPerSlide: brand.layout.maxWordsPerSlide,
     minPurposeWords: 3,
     minExternalClaims: sources.limits.minExternalClaims,
+    voice: { fillers, ...cfg.voice },
   };
 }

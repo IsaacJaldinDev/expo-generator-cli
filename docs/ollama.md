@@ -5,7 +5,10 @@ devolverá un error claro de "no implementado".
 
 ## Cómo agregarlo cuando se pida
 
-1. Implementar `CriticModelProvider` para Ollama en `src/providers/ollama.ts`. La interfaz se define en la fase 3.
+1. La interfaz `CriticModelProvider` ya existe en `src/providers/critic.ts`, con `BedrockCritic` como referencia.
+   Hoy `OllamaCritic` solo rechaza con "no implementado". Para implementarlo, reemplaza su método `critique()`
+   por uno que construya un `Agent` nuevo (sin herramientas, con `structuredOutputSchema: CritiqueSchema`)
+   sobre el modelo de abajo, igual que `BedrockCritic`. `createCritic()` ya lo elige cuando `critic.provider: ollama`.
 2. Strands TS 1.19.0 no tiene un provider nativo de Ollama. Se usa `OpenAIModel` (verificado en
    `@strands-agents/sdk/models/openai`) contra el endpoint compatible con OpenAI:
    ```ts

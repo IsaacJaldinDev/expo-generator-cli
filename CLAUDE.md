@@ -114,6 +114,23 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
   Mismo agente y misma conversación, con turnos y compuerta propios por etapa. `npm run agent -- --act=research|deck`.
 - Si el modelo no entrega el resumen estructurado (`StructuredOutputError`), el flujo sigue solo si la compuerta de la etapa pasó.
 
+## Voz (fase 3)
+
+- **Voice lint** (`src/validators/voice-lint.ts`, determinista): lee las muletillas de `voice/anti-patterns.md`
+  (sección "## Muletillas"), sin importar mayúsculas ni tildes y solo palabras completas. Además detecta:
+  - oraciones largas;
+  - tríadas (más de `voice.maxTriadsPerSection` por sección);
+  - "No es X, es Y" (más de `voice.maxNotXButY` en el deck);
+  - pregunta retórica corta + respuesta corta inmediata.
+
+  Corre dentro de `validate_deck`. Las muletillas y el abuso de "No es X, es Y" son **errores**; el resto, **avisos**.
+  Cada problema cita la oración (`«…»`).
+- **`critique_voice`:** llamada LLM **separada** (`BedrockCritic` crea un `Agent` nuevo en cada llamada, sin
+  historial ni herramientas). Usa como system prompt una rúbrica armada con `voice/examples.md` y `anti-patterns.md`.
+  - El código descarta las observaciones que no citan una oración real del script (`droppedUnquoted`).
+  - Es consultiva: no la exige la compuerta. Tope `critic.maxCalls`. Su uso de tokens suma al costo.
+  - Proveedor por config (`critic.provider`, `critic.model`); `ollama` → "no implementado".
+
 ## Comandos
 
 - Node 24 LTS (`.nvmrc`); npm (sin corepack/pnpm: un punto de fallo menos el día de la charla).
