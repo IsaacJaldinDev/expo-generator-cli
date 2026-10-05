@@ -131,10 +131,41 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
   - Es consultiva: no la exige la compuerta. Tope `critic.maxCalls`. Su uso de tokens suma al costo.
   - Proveedor por config (`critic.provider`, `critic.model`); `ollama` → "no implementado".
 
+## CLI de demo (fase 4)
+
+- `npm run demo -- <acto>` (`src/cli/demo.tsx`, Ink 8 + React 19). Un comando por acto:
+
+  | Comando | Acto | Qué hace |
+  |---|---|---|
+  | `brief` | 1 | Muestra el brief y los apuntes; marca los datos que parecen externos |
+  | `research` | 2 | Etapa research, desde cero |
+  | `plan` | 3 | Etapa deck; conserva `claims.json` |
+  | `edit "…"` | 4 | Edición con diff |
+  | `bedrock` | 5 | Costo por modelo + la línea de config a cambiar |
+  | `guardrails` | 6 | — |
+  | `canva` | 7 | — |
+  | `full` | 2 + 3 | — |
+
+- **Arquitectura:**
+  - `src/cli/session.ts` arma y ejecuta (sin imprimir) y emite `TraceEvent`.
+  - La consola (`npm run agent`) y la vista Ink consumen los mismos eventos.
+  - Lógica pura y testeada: `ui/rows.ts` (eventos → filas), `ui/chain.ts` (cadena `research ×3 → check_timing ✗ → …`)
+    y `ui/diff.ts` (diff por palabra; si la similitud es menor a 0.5, se muestra antes/ahora).
+- **`output/runs.jsonl`** registra cada ejecución (acto, modelo, segundos por etapa, tokens, costo). El Acto 5 ignora las corridas sin tokens.
+- **Para el proyector:** solo las últimas 14 filas de la traza, columnas fijas, color con significado
+  (✓ verde, ✗ rojo, guardrail con fondo rojo).
+
+## Para el preflight (fase 7): lecciones aprendidas
+
+- `aws sts get-caller-identity` puede dar OK con el token SSO **vencido**: el CLI usa credenciales de rol
+  cacheadas (`~/.aws/cli/cache`), pero el SDK de JS (`fromIni`) necesita el token vigente de `~/.aws/sso/cache`
+  y falla con "Token is expired". El preflight debe comprobar el token con el SDK de JS (una llamada real,
+  p. ej. `ApplyGuardrail` o `Converse` con `maxTokens: 1`) y mostrar cuánto falta para que venza.
+
 ## Comandos
 
 - Node 24 LTS (`.nvmrc`); npm (sin corepack/pnpm: un punto de fallo menos el día de la charla).
-- `npm run agent [-- --fresh | "instrucción" | --scope=a,b | --no-guardrail]` → `output/deck.json`, `claims.json`, `script.md`, `timing.md`
+- `npm run demo -- <acto>` (la demo) · `npm run agent [-- --fresh | --act=research|deck | "instrucción" | --scope=a,b | --no-guardrail]` (consola, desarrollo) → `output/deck.json`, `claims.json`, `script.md`, `timing.md`
 - `npm run typecheck` · `npm test` · `npm run spike:agent [-- --guardrail]` · `npm run spike:guardrail` · `npm run spike:canva [-- --reset]`
 - Tests sin AWS: `src/replay/scripted-model.ts` reproduce turnos guionizados por el loop real de Strands
   (base del modo `--replay` de la fase 7).

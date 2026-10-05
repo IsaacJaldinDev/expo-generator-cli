@@ -47,12 +47,25 @@ export function consoleTrace(e: TraceEvent): void {
     case 'info':
       console.log(styleText('dim', e.message));
       break;
+    case 'stage-start':
+      console.log(styleText(['bold', 'magenta'], `\n━━ ${e.title} ━━`));
+      break;
+    case 'stage-end':
+      if (e.warning) console.log(styleText('yellow', `⚠ ${e.warning}`));
+      if (e.summary) console.log(styleText('bold', 'Resumen del agente:'), e.summary);
+      if (!e.ok) console.log(styleText(['red', 'bold'], `✗ La etapa "${e.stage}" no pasó:`), e.problems.join(' · '));
+      console.log(styleText('dim', `━━ ${e.stage}: ${e.seconds.toFixed(1)}s · ${e.stopReason}`));
+      break;
   }
 }
 
-/** update_section muestra la sección y qué campos cambia; el resto, el JSON recortado. */
-function describeInput(input: unknown): string {
+/** Detalle legible de la entrada de cada herramienta (lo que se proyecta en la traza). */
+export function describeInput(input: unknown): string {
   const o = input as Record<string, unknown> | undefined;
+  if (o && typeof o.passageId === 'string' && typeof o.text === 'string') return `${o.passageId} → «${o.text}»`;
+  if (o && typeof o.claim === 'string') return `«${o.claim}»`;
+  if (o && Array.isArray(o.sectionIds)) return `[${o.sectionIds.join(', ')}]`;
+  if (o && Object.keys(o).length === 0) return '';
   if (o && typeof o.sectionId === 'string') {
     const fields = Object.keys(o).filter((k) => k !== 'sectionId');
     const slides = Array.isArray(o.slides) ? ` (${o.slides.length} slides)` : '';
