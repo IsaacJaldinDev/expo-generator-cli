@@ -64,7 +64,10 @@ export function checkTiming(deck: Deck, p: TimingParams, preferSections?: Iterab
   const preferred = new Set(preferSections ?? []);
   const candidates = sections.some((s) => preferred.has(s.id)) ? sections.filter((s) => preferred.has(s.id)) : sections;
 
-  if (totalSeconds > p.budgetSeconds) {
+  if (sections.length === 0) {
+    deltaSeconds = -minSeconds;
+    problems.push(`El deck no tiene secciones todavía: faltan ${minSeconds} s de contenido.`);
+  } else if (totalSeconds > p.budgetSeconds) {
     deltaSeconds = totalSeconds - p.budgetSeconds;
     const target = candidates.reduce((a, b) => (slack(b) < slack(a) ? b : a));
     suggestion = { sectionId: target.id, action: 'quitar', words: wordsFor(deltaSeconds) };

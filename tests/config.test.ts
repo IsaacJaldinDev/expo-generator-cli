@@ -9,14 +9,14 @@ const raw = () => parse(readFileSync('config/config.yml', 'utf8'));
 describe('config.yml', () => {
   it('el config versionado es válido', () => {
     const cfg = loadConfig('config/config.yml', {});
-    expect(activeModel(cfg).modelId).toMatch(/nova/);
+    expect(activeModel(cfg).modelId).toMatch(/mistral/);
     expect(cfg.canva.tokenDir.startsWith('~')).toBe(false);
   });
 
   it('cambiar de modelo es una sola línea', () => {
     const r = raw();
-    r.model.active = 'mistral';
-    expect(activeModel(parseConfig(r, {})).modelId).toMatch(/mistral/);
+    r.model.active = 'nova';
+    expect(activeModel(parseConfig(r, {})).modelId).toMatch(/nova/);
   });
 
   it('AWS_PROFILE y AWS_REGION del entorno tienen prioridad', () => {

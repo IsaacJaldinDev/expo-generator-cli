@@ -63,6 +63,12 @@ describe('check_timing (código, no LLM)', () => {
     expect(r.sections[0]).toMatchObject({ seconds: 20, targetSeconds: 15, overBySeconds: 5 });
   });
 
+  it('deck vacío no rompe (record_claim guarda antes de que existan secciones)', () => {
+    const r = checkTiming({ title: 't', sections: [] }, params);
+    expect(r).toMatchObject({ ok: false, deltaSeconds: -80, totalSeconds: 0 });
+    expect(r.suggestion).toBeUndefined();
+  });
+
   it('fmt', () => expect(fmt(305)).toBe('5:05'));
 });
 
@@ -124,6 +130,15 @@ describe('validate_deck', () => {
     const e = validateDeck(deck, claims, params).errors;
     expect(e.map((x) => x.rule)).toEqual(['dato-sin-fuente']);
     expect(e[0]!.message).toContain('Citar los apuntes no basta');
+  });
+
+  it('exige un mínimo de claims externos verificados citados', () => {
+    const deck = validDeck();
+    deck.sections[1]!.slides[0]!.script = `MCP se publicó en noviembre de 2024[^c-ok]. Lo viví[^c-autor]. ${words(42)}`;
+    expect(validateDeck(deck, claims, { ...params, minExternalClaims: 1 }).ok).toBe(true);
+    const e = validateDeck(deck, claims, { ...params, minExternalClaims: 2 }).errors;
+    expect(e.map((x) => x.rule)).toEqual(['fuentes-externas']);
+    expect(e[0]!.message).toContain('cita 1 claims externos verificados; el mínimo es 2');
   });
 
   it('duración fuera de presupuesto es error', () => {

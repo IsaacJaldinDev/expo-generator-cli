@@ -17,13 +17,16 @@ ${stringify(brief).trim()}
 - Con 6 a 8 slides, cada script debe tener ~${perSlide} palabras. Escribe con esa extensión desde el primer intento.
 - Texto visible por slide (título + bullets): máximo ${p.maxWordsPerSlide} palabras. El detalle va en el script, no en la slide.
 
-# Proceso para crear la exposición
+# Proceso para crear la exposición (en dos etapas; el usuario te indica cuál)
+ACTO 2 — investigación:
 1. read_knowledge: lee los apuntes del autor. Son tu materia prima principal.
-2. Planifica: una sección "hook" primero, 2 a 4 secciones "body" y una sección "close". Asigna targetSeconds a cada una de modo que sumen como máximo ${p.budgetSeconds} s.
-3. Crea cada sección con una llamada a update_section (kind, title, goal, targetSeconds, slides).
-4. check_timing. Si falla, aplica exactamente su sugerencia: UNA sección, agregando o quitando las palabras indicadas (conserva el resto del texto y súmale o réstale oraciones). Revisa scriptWords en la respuesta de update_section para confirmar el cambio y vuelve a check_timing.
-5. validate_deck. Si falla, corrige exactamente lo que reporta.
-6. Termina con la salida estructurada.
+2. Huecos: identifica entre ${p.minExternalClaims} y 5 afirmaciones de los apuntes (o que la charla necesita) que son datos verificables sin fuente: definiciones oficiales, fechas, cifras, adopción. Para cada una: research (palabras clave en inglés) → record_claim con el id del pasaje que la respalda. Si ningún pasaje la respalda, NO uses esa afirmación. Necesitas al menos ${p.minExternalClaims} claims verificados.
+ACTO 3 — deck:
+3. Planifica: una sección "hook" primero, 2 a 4 secciones "body" y una sección "close". Asigna targetSeconds a cada una de modo que sumen como máximo ${p.budgetSeconds} s.
+4. Crea cada sección con una llamada a update_section (kind, title, goal, targetSeconds, slides).
+5. check_timing. Si falla, aplica exactamente su sugerencia: UNA sección, agregando o quitando las palabras indicadas (conserva el resto del texto y súmale o réstale oraciones). Revisa scriptWords en la respuesta de update_section para confirmar el cambio y vuelve a check_timing.
+6. validate_deck. Si falla, corrige exactamente lo que reporta.
+7. Termina con la salida estructurada.
 
 # Proceso para editar una exposición existente
 Si el usuario pide un cambio puntual, identifica la sección que corresponde (p. ej. "el inicio" es la sección hook), modifícala con update_section, luego check_timing y validate_deck. El código solo te deja modificar la primera sección que toques: si el tiempo no cuadra, ajústala a ella. No necesitas read_knowledge para una edición.
@@ -33,6 +36,7 @@ Si el usuario pide un cambio puntual, identifica la sección que corresponde (p.
 - El script es lenguaje hablado, natural, para la audiencia del brief. Oraciones cortas.
 - No inventes datos. Las afirmaciones verificables solo pueden aparecer respaldadas por un claim de claims.json, citado con un marcador [^id] al final de la oración.
 - Para indicar que una idea sale de los apuntes del autor, cita su fragmento: "...[^notes#3]." El código lo registra como claim de autor.
-- Cifras, porcentajes, años y datos verificables necesitan un claim EXTERNO verificado; citar los apuntes no basta. En esta versión no tienes herramienta de investigación: omite esos datos o exprésalos sin cifras.
+- Cifras, porcentajes, años y datos verificables necesitan un claim EXTERNO verificado (record_claim devolvió verified: true), citado con su id: "...[^c-1]." Citar los apuntes no basta.
+- Nunca cites un claim con verified: false: quita esa afirmación del script.
 - Nunca escribas citas textuales atribuidas a personas reales.`;
 }

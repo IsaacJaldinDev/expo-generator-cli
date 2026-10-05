@@ -19,6 +19,8 @@ export const ClaimSchema = z
     /** Fragmento textual citado de la fuente. */
     quote: z.string().optional(),
     verified: z.boolean(),
+    /** Detalle de las comprobaciones en código que producen `verified` (claims externos). */
+    checks: z.object({ quoteFound: z.boolean(), numbersMatch: z.boolean() }).optional(),
     retrievedAt: z.string().optional(),
   })
   .refine((c) => c.origin === 'author' || !!c.sourceUrl, {

@@ -6,6 +6,8 @@ import { checkTiming, type TimingParams } from './timing.ts';
 export interface DeckRuleParams extends TimingParams {
   maxWordsPerSlide: number;
   minPurposeWords: number;
+  /** El script debe citar al menos estos claims externos verificados (0 = sin exigencia). */
+  minExternalClaims: number;
 }
 
 export interface Issue {
@@ -94,6 +96,22 @@ export function validateDeck(deck: Deck, claims: Claim[], p: DeckRuleParams): De
         }
       }
     }
+  }
+
+  const citedExternal = new Set(
+    deck.sections
+      .flatMap((s) => s.slides.flatMap((sl) => claimMarkers(sl.script)))
+      .filter((id) => {
+        const c = claimsById.get(id);
+        return c?.origin === 'external' && c.verified;
+      }),
+  );
+  if (citedExternal.size < p.minExternalClaims) {
+    errors.push({
+      rule: 'fuentes-externas',
+      where: 'deck',
+      message: `El script cita ${citedExternal.size} claims externos verificados; el mínimo es ${p.minExternalClaims}. Investiga los huecos (research → record_claim) y cítalos con [^c-n].`,
+    });
   }
 
   const timing = checkTiming(deck, p);

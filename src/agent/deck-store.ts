@@ -52,6 +52,23 @@ export class DeckStore {
     return new DeckStore(deck, claims);
   }
 
+  /** Registra un claim externo con id determinista `c-<n>`. `verified` y `sourceTier` los calcula quien llama, en código. */
+  addExternalClaim(c: {
+    text: string;
+    sourceUrl: string;
+    sourceTier: string;
+    quote: string;
+    verified: boolean;
+    checks: { quoteFound: boolean; numbersMatch: boolean };
+  }): Claim {
+    const n = this.claims.filter((x) => x.origin === 'external').length + 1;
+    let id = `c-${n}`;
+    for (let k = n; this.claims.some((x) => x.id === id); k++) id = `c-${k + 1}`;
+    const claim: Claim = { id, origin: 'external', ...c, retrievedAt: new Date().toISOString() };
+    this.claims.push(claim);
+    return claim;
+  }
+
   setKnowledge(fragments: { id: string; text: string }[]): void {
     this.knowledge = new Map(fragments.map((f) => [f.id, f.text]));
   }

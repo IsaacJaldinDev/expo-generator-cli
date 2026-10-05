@@ -1,6 +1,25 @@
 import type { Claim } from '../src/schemas/claims.ts';
+import { SourcesSchema, type Sources } from '../src/schemas/sources.ts';
 import type { Deck, Section } from '../src/schemas/deck.ts';
 import type { DeckRuleParams } from '../src/validators/deck-rules.ts';
+
+export const sources: Sources = SourcesSchema.parse({
+  tiers: { primary: ['modelcontextprotocol.io'], community: ['github.com'] },
+  seeds: [{ url: 'https://modelcontextprotocol.io/intro' }, { url: 'https://github.com/mcp/servers' }],
+});
+
+/** Páginas falsas para tests sin red. */
+export const PAGES: Record<string, string> = {
+  'https://modelcontextprotocol.io/intro':
+    '<html><script>var x=1;</script><h1>What is MCP?</h1><p>MCP is an open-source standard for connecting AI applications to external systems.</p>' +
+    '<p>Think of MCP like a USB-C port for AI applications. Just as USB-C provides a standardized way to connect devices, MCP provides a standardized way to connect AI applications.</p></html>',
+  'https://github.com/mcp/servers': '<p>This repository is a collection of reference implementations for the Model Context Protocol &amp; community servers.</p>',
+};
+export const fakeFetcher = async (url: string): Promise<string> => {
+  const page = PAGES[url];
+  if (!page) throw new Error(`HTTP 404 al descargar ${url}`);
+  return page;
+};
 
 /** 60 palabras por minuto: 1 palabra = 1 segundo, fácil de razonar en los tests. */
 export const params: DeckRuleParams = {
@@ -9,6 +28,7 @@ export const params: DeckRuleParams = {
   minFillRatio: 0.8,
   maxWordsPerSlide: 12,
   minPurposeWords: 3,
+  minExternalClaims: 0,
 };
 
 export const words = (n: number, w = 'palabra'): string => Array.from({ length: n }, () => w).join(' ') + '.';

@@ -10,6 +10,10 @@ export function checkTimingTool(deps: ToolDeps) {
       'Calcula en código la duración de cada sección y del total (palabras del script ÷ palabras por minuto) ' +
       'y reporta excesos o faltantes en segundos.',
     inputSchema: z.object({}),
-    callback: () => checkTiming(deps.store.deck, deps.params, deps.store.editScope),
+    callback: () => {
+      const r = checkTiming(deps.store.deck, deps.params, deps.store.editScope);
+      // El siguiente paso lo decide el código: con el tiempo en rango no hay nada más que ajustar.
+      return { ...r, next: r.ok ? 'El tiempo está en rango: NO edites más secciones; llama a validate_deck.' : 'Aplica la sugerencia y vuelve a check_timing.' };
+    },
   });
 }

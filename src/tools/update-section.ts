@@ -26,6 +26,9 @@ export function updateSectionTool(deps: ToolDeps) {
       'reemplazan todas las slides de esa sección. Nunca reescribas secciones que no necesitas cambiar.',
     inputSchema: SectionPatchSchema,
     callback: async (input) => {
+      if (deps.stage.current === 'research') {
+        return { ok: false, error: 'Etapa de investigación: todavía no escribas el deck. Termina de registrar los claims.' };
+      }
       const guarded = await guardPatch(input, deps);
       if (guarded.blocked) {
         return { ok: false, error: `Bedrock Guardrails bloqueó el contenido (${guarded.blocked}). Reescríbelo sin ese contenido.` };
@@ -49,6 +52,7 @@ export function updateSectionTool(deps: ToolDeps) {
         scriptWords: { before: words(before), after: words(change.after) },
         ...(change.after ? { sectionTiming: sectionTiming(change.after, deps.params.wordsPerMinute) } : {}),
         deckSeconds: { total: total.totalSeconds, budget: total.budgetSeconds },
+        timingOk: total.ok,
         sectionOrder: deps.store.deck.sections.map((s) => s.id),
         ...(targetsScaled
           ? { note: 'Los targetSeconds sumaban más que la charla: el código los escaló proporcionalmente.' }

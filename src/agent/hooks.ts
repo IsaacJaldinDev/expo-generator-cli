@@ -170,7 +170,7 @@ export function validationGate(opts: {
   abort?: AbortController;
   /** Si la ronda agotó este tope de turnos (limits.turns), no se reanuda: se reporta y se detiene. */
   maxTurns?: number;
-}): Plugin & { readonly lastResult: GateResult | undefined; readonly rounds: number } {
+}): Plugin & { readonly lastResult: GateResult | undefined; readonly rounds: number; reset(): void } {
   let rounds = 0;
   let lastResult: GateResult | undefined;
   return {
@@ -180,6 +180,11 @@ export function validationGate(opts: {
     },
     get rounds() {
       return rounds;
+    },
+    /** Nueva etapa (acto): las rondas de revisión vuelven a cero. */
+    reset() {
+      rounds = 0;
+      lastResult = undefined;
     },
     initAgent(agent: LocalAgent) {
       // AfterInvocationEvent también se dispara cuando la invocación falla y no trae el error:

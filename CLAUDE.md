@@ -20,7 +20,7 @@ obligación de revisar su propio trabajo.** Prioridad: confiabilidad en vivo > c
 - Máximo **2 rondas de revisión** (`agent.maxRevisionRounds`); structured output con **1 reintento**
   (`agent.structuredOutputRetries`) y luego error claro. Nunca loops en escenario.
 - Modelo en config, nunca hardcodeado. Cambio en vivo con **una línea**: `model.active` en `config/config.yml`.
-  Principal: **Nova 2 Lite** (`us.amazon.nova-2-lite-v1:0`); alternativa del Acto 5: **Mistral Large 3**.
+  Principal: **Mistral Large 3** (más estable en el flujo completo, fase 2); alternativa del Acto 5: **Nova 2 Lite** (`us.amazon.nova-2-lite-v1:0`).
   Claude no se usa: la cuenta no completó el formulario de caso de uso de Anthropic (decisión del autor, fase 0).
 - Precios en config, no en código. Al final de cada ejecución: tokens in/out y costo estimado USD.
 - Credenciales: solo perfil local (`aws.profile`, sobreescribible con `AWS_PROFILE`). Tokens OAuth de Canva en
@@ -95,6 +95,24 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
   | Generar | Nova 2 Lite | 15–20 | 55–90 s | ~$0.03–0.06 |
   | Generar | Mistral Large 3 | 15 | 80 s | ~$0.06 |
   | Editar | Nova 2 Lite | ~11 | 42 s | ~$0.03 |
+
+## Procedencia (fase 2)
+
+- `config/sources.yml`: allowlist de dominios (coincidencia exacta del host, solo https) con el tier de cada uno, más las URLs semilla verificadas.
+  `research` nunca sale de ahí. El modo con API key se agrega detrás de `SearchProvider` (`src/research/search.ts`).
+- **`record_claim` recibe `passageId`, no una cita libre.** En las pruebas reales, Mistral y Nova inventaban o
+  parafraseaban citas de memoria. Ahora el modelo solo puede elegir un pasaje real que devolvió `research`.
+- `verified` se calcula en código y deja el detalle en `checks`:
+  - `quoteFound`: el pasaje se vuelve a comprobar contra la página descargada.
+  - `numbersMatch`: toda cifra de la afirmación aparece en el pasaje (sirve entre español e inglés: "10.000" ↔ "10,000").
+  Así se rechaza siempre el dato sembrado del 90%, aunque el modelo lo "respalde" con un pasaje real.
+- Los pasajes son ventanas de oraciones **contiguas**, para que cada uno exista literalmente en la página (33/33 verificados con las fuentes reales).
+- `validate_deck` exige que el script cite al menos `limits.minExternalClaims` claims externos verificados.
+- **Ejecución por etapas** (`ToolDeps.stage`), alineada con los actos:
+  - `research` (acto 2): `update_section` bloqueado; la compuerta exige los claims verificados.
+  - `deck` (acto 3): escribe, mide y valida.
+  Mismo agente y misma conversación, con turnos y compuerta propios por etapa. `npm run agent -- --act=research|deck`.
+- Si el modelo no entrega el resumen estructurado (`StructuredOutputError`), el flujo sigue solo si la compuerta de la etapa pasó.
 
 ## Comandos
 

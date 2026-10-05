@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { checkTimingTool } from '../tools/check-timing.ts';
 import type { ToolDeps } from '../tools/deps.ts';
 import { readKnowledgeTool } from '../tools/read-knowledge.ts';
+import { recordClaimTool } from '../tools/record-claim.ts';
+import { researchTool } from '../tools/research.ts';
 import { updateSectionTool } from '../tools/update-section.ts';
 import { validateDeckTool } from '../tools/validate-deck.ts';
 import { validateDeck } from '../validators/deck-rules.ts';
@@ -29,6 +31,7 @@ export function createExpoAgent(deps: ExpoAgentDeps) {
 
   const gate = validationGate({
     validate: () => {
+      if (deps.stage.current === 'research') return validateResearch(deps);
       const v = validateDeck(deps.store.deck, deps.store.claims, deps.params);
       return { ok: v.ok, problems: v.errors.map((e) => `[${e.rule}] ${e.where}: ${e.message}`) };
     },
@@ -41,7 +44,14 @@ export function createExpoAgent(deps: ExpoAgentDeps) {
   const agent = new Agent({
     model: deps.model,
     systemPrompt: deps.systemPrompt,
-    tools: [readKnowledgeTool(deps), updateSectionTool(deps), checkTimingTool(deps), validateDeckTool(deps)],
+    tools: [
+      readKnowledgeTool(deps),
+      researchTool(deps),
+      recordClaimTool(deps),
+      updateSectionTool(deps),
+      checkTimingTool(deps),
+      validateDeckTool(deps),
+    ],
     structuredOutputSchema: RunSummarySchema,
     // update_section escribe deck.json: secuencial para que el orden de la traza sea el real
     toolExecutor: 'sequential',
@@ -58,6 +68,26 @@ export function createExpoAgent(deps: ExpoAgentDeps) {
   const invokeOptions = { cancelSignal: abort.signal, limits: { turns: deps.maxTurns } };
   return { agent, abort, gate, invokeOptions };
 }
+
+/** Compuerta del acto 2: hay suficientes claims externos verificados para escribir el deck. */
+export function validateResearch(deps: Pick<ToolDeps, 'store' | 'params'>): { ok: boolean; problems: string[] } {
+  const verified = deps.store.claims.filter((c) => c.origin === 'external' && c.verified).length;
+  return verified >= deps.params.minExternalClaims
+    ? { ok: true, problems: [] }
+    : {
+        ok: false,
+        problems: [
+          `Hay ${verified} claims externos verificados; se necesitan al menos ${deps.params.minExternalClaims}. Investiga otros huecos (research → record_claim con passageId).`,
+        ],
+      };
+}
+
+/** Instrucción de cada etapa. */
+export const STAGE_INSTRUCTIONS = {
+  research:
+    'ACTO 2 — Huecos y research. Lee los apuntes (read_knowledge), identifica las afirmaciones verificables sin fuente y respáldalas: research → record_claim con el passageId. No escribas el deck todavía. Termina cuando tengas los claims.',
+  deck: 'ACTO 3 — Plan y validación. Con los apuntes y los claims verificados de claims.json, escribe la exposición sección por sección (update_section), luego check_timing y validate_deck hasta que pasen.',
+} as const;
 
 /** Mensaje de usuario: la instrucción + el estado actual del deck (si existe). */
 export function buildUserMessage(instruction: string, deckJson: unknown, claimsJson: unknown, hasDeck: boolean): string {

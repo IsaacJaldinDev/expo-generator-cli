@@ -1,0 +1,48 @@
+# Fuentes permitidas para `research` y `record_claim`.
+# El agente NUNCA sale de esta allowlist. El tier de cada claim sale de este mapeo fijo, no del LLM.
+
+tiers:
+  # Documentación oficial y especificación del protocolo
+  primary:
+    - modelcontextprotocol.io
+    - www.anthropic.com
+    - docs.aws.amazon.com
+  # Organizaciones e instituciones que gobiernan o adoptan el estándar
+  secondary:
+    - www.linuxfoundation.org
+    - aws.amazon.com
+  # Código y comunidad
+  community:
+    - github.com
+
+# URLs semilla curadas: el modo por defecto de `research` (lo más confiable para la demo).
+# Verificadas el 2026-10-04: responden 200 y su texto se extrae sin ejecutar JavaScript.
+seeds:
+  - url: https://modelcontextprotocol.io/docs/getting-started/intro
+    note: Qué es MCP, analogía USB-C
+  - url: https://modelcontextprotocol.io/docs/learn/architecture
+    note: Host/cliente/servidor, JSON-RPC 2.0, transportes stdio y Streamable HTTP, primitivas
+  - url: https://modelcontextprotocol.io/docs/learn/server-concepts
+    note: Herramientas, recursos y prompts
+  - url: https://www.anthropic.com/news/model-context-protocol
+    note: Anuncio original (25 nov 2024)
+  - url: https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation
+    note: Donación a la Agentic AI Foundation (Linux Foundation), adopción, número de servidores
+  - url: https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation
+    note: Anuncio de la Linux Foundation
+  - url: https://github.com/modelcontextprotocol/servers
+    note: Servidores de referencia
+  - url: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html
+    note: MCP en AWS (AgentCore Gateway)
+
+search:
+  # seeds: solo las URLs de arriba. Un proveedor con API key se agrega detrás de SearchProvider
+  # (src/research/search.ts) y sus resultados igual se filtran por la allowlist.
+  provider: seeds
+
+limits:
+  maxResearchCalls: 6 # por ejecución
+  minExternalClaims: 3 # validate_deck exige que el script cite al menos estos claims externos verificados
+  maxExternalClaims: 5 # el agente investiga solo los huecos: 3–5 claims
+  fetchTimeoutMs: 15000
+  minQuoteChars: 20 # un fragmento citado más corto no prueba nada

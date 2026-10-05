@@ -6,8 +6,8 @@ aws:
   region: us-east-2
 
 model:
-  # Cambio de modelo en vivo (Acto 5): edita SOLO esta línea → nova | mistral
-  active: nova
+  # Cambio de modelo en vivo (Acto 5): edita SOLO esta línea → mistral | nova
+  active: mistral
   options:
     nova:
       modelId: us.amazon.nova-2-lite-v1:0
