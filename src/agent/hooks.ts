@@ -7,12 +7,32 @@ import {
   ModelStreamUpdateEvent,
   type LocalAgent,
   type Plugin,
+  type ToolResultBlock,
 } from '@strands-agents/sdk';
 import { converseTraceToInterventions } from '../guardrails/trace.ts';
 import type { TraceSink, UsageTotals } from './events.ts';
 
 /** Nombre interno de la herramienta de structured output del SDK (verificado en 1.19.0). */
 export const STRUCTURED_OUTPUT_TOOL = 'strands_structured_output';
+
+/**
+ * Veredicto de una herramienta para la vista de trazas. Además del error técnico, las herramientas
+ * deterministas devuelven `{ ok: false, ... }` cuando su revisión falla (p. ej. check_timing con exceso):
+ * eso también se muestra como ✗, que es lo que el público tiene que ver.
+ */
+export function toolVerdict(result: ToolResultBlock, error?: Error): { ok: boolean; note?: string } {
+  if (result.status === 'error') return { ok: false, note: error?.message ?? 'error' };
+  const json = result.content.find((c) => c.type === 'jsonBlock')?.json as
+    | { ok?: unknown; error?: unknown; problems?: unknown; errors?: unknown }
+    | undefined;
+  if (json?.ok !== false) return { ok: true };
+  const first =
+    (typeof json.error === 'string' && json.error) ||
+    (Array.isArray(json.problems) && typeof json.problems[0] === 'string' && json.problems[0]) ||
+    (Array.isArray(json.errors) && (json.errors[0] as { message?: string } | undefined)?.message) ||
+    '';
+  return { ok: false, ...(first ? { note: first } : {}) };
+}
 
 /** Emite a la vista de trazas cada llamada a herramienta, cada llamada al modelo y las intervenciones de guardrail. */
 export function tracePlugin(sink: TraceSink): Plugin {
@@ -32,14 +52,14 @@ export function tracePlugin(sink: TraceSink): Plugin {
         if (e.toolUse.name === STRUCTURED_OUTPUT_TOOL) return;
         const t0 = started.get(e.toolUse.toolUseId) ?? performance.now();
         started.delete(e.toolUse.toolUseId);
-        const ok = e.result.status !== 'error';
+        const verdict = toolVerdict(e.result, e.error);
         sink({
           kind: 'tool-end',
           id: e.toolUse.toolUseId,
           name: e.toolUse.name,
-          ok,
+          ok: verdict.ok,
           ms: Math.round(performance.now() - t0),
-          ...(ok ? {} : { note: e.error?.message ?? 'error' }),
+          ...(verdict.note ? { note: verdict.note } : {}),
         });
       });
 
@@ -94,6 +114,35 @@ export function structuredOutputLimit(opts: { maxRetries: number; abort: AbortCo
   };
 }
 
+/**
+ * Tope de llamadas a herramientas por ejecución. Algunos modelos piden muchas herramientas en un solo
+ * turno, así que limits.turns no basta. Al superarlo se cancela la llamada y se aborta la invocación.
+ */
+export function toolCallLimit(opts: { maxCalls: number; abort: AbortController; sink: TraceSink }): Plugin {
+  return {
+    name: 'expo-tool-call-limit',
+    initAgent(agent: LocalAgent) {
+      let calls = 0;
+      agent.addHook(BeforeToolCallEvent, (e) => {
+        if (e.toolUse.name === STRUCTURED_OUTPUT_TOOL) return;
+        if (++calls <= opts.maxCalls) return;
+        e.cancel = `Tope de ${opts.maxCalls} llamadas a herramientas alcanzado.`;
+        if (!opts.abort.signal.aborted) {
+          opts.sink({ kind: 'info', message: `Tope de ${opts.maxCalls} llamadas a herramientas alcanzado: el agente se detiene.` });
+          opts.abort.abort(new ToolCallLimitExceeded(opts.maxCalls));
+        }
+      });
+    },
+  };
+}
+
+export class ToolCallLimitExceeded extends Error {
+  constructor(readonly maxCalls: number) {
+    super(`El agente superó el tope de ${maxCalls} llamadas a herramientas y se detuvo.`);
+    this.name = 'ToolCallLimitExceeded';
+  }
+}
+
 export class StructuredOutputRetriesExceeded extends Error {
   constructor(
     readonly attempts: number,
@@ -119,6 +168,8 @@ export function validationGate(opts: {
   maxRounds: number;
   sink: TraceSink;
   abort?: AbortController;
+  /** Si la ronda agotó este tope de turnos (limits.turns), no se reanuda: se reporta y se detiene. */
+  maxTurns?: number;
 }): Plugin & { readonly lastResult: GateResult | undefined; readonly rounds: number } {
   let rounds = 0;
   let lastResult: GateResult | undefined;
@@ -134,17 +185,25 @@ export function validationGate(opts: {
       // AfterInvocationEvent también se dispara cuando la invocación falla y no trae el error:
       // lo detectamos aquí para no validar (ni reanudar) un intento que nunca terminó.
       let modelFailed = false;
+      let turns = 0;
+      // BeforeInvocationEvent se dispara también en cada ronda reanudada (verificado en el SDK 1.19.0)
       agent.addHook(BeforeInvocationEvent, () => {
         modelFailed = false;
+        turns = 0;
       });
       agent.addHook(AfterModelCallEvent, (e) => {
         if (e.error && !e.retry) modelFailed = true;
+        else if (!e.error) turns++;
       });
       agent.addHook(AfterInvocationEvent, async (e) => {
         if (opts.abort?.signal.aborted || modelFailed) return;
         lastResult = await opts.validate(agent);
         opts.sink({ kind: 'validation', round: rounds, ok: lastResult.ok, problems: lastResult.problems });
         if (lastResult.ok || rounds >= opts.maxRounds) return;
+        if (opts.maxTurns !== undefined && turns >= opts.maxTurns) {
+          opts.sink({ kind: 'info', message: `Tope de ${opts.maxTurns} turnos alcanzado: el agente se detiene sin reanudar.` });
+          return;
+        }
         rounds++;
         e.resume =
           `La validación falló (ronda de revisión ${rounds}/${opts.maxRounds}). Corrige SOLO esto y vuelve a validar:\n` +

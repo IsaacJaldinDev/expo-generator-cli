@@ -42,10 +42,16 @@ export const ConfigSchema = z
     }),
     timing: z.object({
       wordsPerMinute: z.number().positive().default(135),
+      /** El script debe llenar al menos esta fracción de la duración del brief. */
+      minFillRatio: z.number().min(0).max(1).default(0.8),
     }),
     agent: z.object({
       maxRevisionRounds: z.number().int().min(0).max(5).default(2),
       structuredOutputRetries: z.number().int().min(0).max(3).default(1),
+      /** Tope duro de turnos (llamada al modelo + herramientas) por ronda: nunca queda en loop en escenario. */
+      maxTurns: z.number().int().positive().default(30),
+      /** Un turno puede traer varias llamadas a herramientas: tope total por ejecución. */
+      maxToolCalls: z.number().int().positive().default(60),
     }),
     canva: z.object({
       mcpUrl: z.url(),

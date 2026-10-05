@@ -47,10 +47,13 @@ critic:
 
 timing:
   wordsPerMinute: 135
+  minFillRatio: 0.8 # el script debe llenar al menos el 80% de la duración del brief
 
 agent:
   maxRevisionRounds: 2
   structuredOutputRetries: 1
+  maxTurns: 30 # tope duro de turnos por ronda: si se alcanza, el agente reporta y se detiene
+  maxToolCalls: 60 # tope de llamadas a herramientas por ejecución (un turno puede traer varias)
 
 canva:
   mcpUrl: https://mcp.canva.com/mcp

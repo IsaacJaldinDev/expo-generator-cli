@@ -75,9 +75,31 @@ Hay que elegir uno solo.
 - Guardrail `d1e4ashg6qe2` (Standard): 4 escenarios al 10/10. La cita inventada en la salida solo se atrapa con
   grounding contra los fragmentos de los claims. Detalle en `docs/guardrails.md`.
 
+## Núcleo (fase 1): decisiones tomadas al probar en real
+
+Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. Todo lo que es cálculo o regla vive en código:
+- **Marcadores `[^id]`** en el script: `id` es un claim externo (`c-…`) o un fragmento de los apuntes (`notes#3`).
+  Citar un fragmento registra un claim `origin: author` en `claims.json`, con `verified` calculado en código
+  (el fragmento existe). Un dato con cifras (%, años, ≥100) exige un claim **externo** verificado: citar los
+  apuntes no basta. Así el dato sembrado ("90% de las startups…") se rechaza siempre.
+- **`targetSeconds`:** si suman más que la charla, el store los escala en código. No hay regla que le pida sumar al LLM.
+- **`check_timing`** devuelve una `suggestion`: UNA sección y cuántas palabras agregar o quitar.
+- **Edición puntual** (`DeckStore.startEdit`): la primera sección tocada fija el alcance y el código rechaza
+  las demás (el rechazo se ve en la traza). `--scope=a,b` para ediciones de varias secciones.
+- **Topes duros:** `agent.maxTurns` (por ronda) y `agent.maxToolCalls` (por ejecución; algunos modelos piden
+  muchas herramientas por turno). Nova Pro se descartó: reescribía hasta 9 secciones por turno y no convergía.
+- Medido en real (us-east-2):
+
+  | Tarea | Modelo | Herramientas | Tiempo | Costo |
+  |---|---|---|---|---|
+  | Generar | Nova 2 Lite | 15–20 | 55–90 s | ~$0.03–0.06 |
+  | Generar | Mistral Large 3 | 15 | 80 s | ~$0.06 |
+  | Editar | Nova 2 Lite | ~11 | 42 s | ~$0.03 |
+
 ## Comandos
 
 - Node 24 LTS (`.nvmrc`); npm (sin corepack/pnpm: un punto de fallo menos el día de la charla).
+- `npm run agent [-- --fresh | "instrucción" | --scope=a,b | --no-guardrail]` → `output/deck.json`, `claims.json`, `script.md`, `timing.md`
 - `npm run typecheck` · `npm test` · `npm run spike:agent [-- --guardrail]` · `npm run spike:guardrail` · `npm run spike:canva [-- --reset]`
 - Tests sin AWS: `src/replay/scripted-model.ts` reproduce turnos guionizados por el loop real de Strands
   (base del modo `--replay` de la fase 7).
