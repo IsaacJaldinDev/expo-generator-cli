@@ -8,7 +8,7 @@ aws:
 expo:
   # Exposición activa: input/<active>.json (apuntes en knowledge/<active>/, salida en output/<active>/).
   # `--expo=<nombre>` la sobreescribe en cada comando.
-  active: clorofila
+  active: ejemplo
 
 model:
   # Cambio de modelo en vivo (Acto 5): edita SOLO esta línea → claude45 | mistral | nova | claude (Sonnet 5.5, bloqueado)

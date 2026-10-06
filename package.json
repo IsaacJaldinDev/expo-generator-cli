@@ -1,6 +1,7 @@
 {
   "name": "expo-generator",
   "version": "1.0.0",
+  "license": "MIT",
   "description": "Agente De apuntes a exposicion (AWS Student Community Day)",
   "scripts": {
     "typecheck": "tsc --noEmit",
