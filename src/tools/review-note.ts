@@ -7,12 +7,12 @@ import type { ToolDeps } from './deps.ts';
 /**
  * Contrasta UN fragmento de los apuntes con la fuente de verdad. El modelo elige el pasaje y dice qué relación ve;
  * el veredicto lo arma el código:
- * - "supports": se verifica igual que un claim (cita, cifras, grounding). Pasa → confirmado; no pasa → sin-respaldo
+ * - "supports": se verifica igual que un claim (cita, cifras, grounding). Pasa → confirmado; no pasa → sin-verificar
  *   (que la fuente no alcance a respaldarlo no prueba que el apunte esté mal: en las pruebas reales, apuntes
- *   correctos quedaban con grounding 0.68–0.71, apenas bajo el umbral).
+ *   correctos quedaban con grounding 0.68–0.71, apenas bajo el umbral). No se reporta.
  * - "contradicts": inconsistente, con la explicación del modelo y el pasaje para que el autor compare.
  *   Detectar una contradicción es juicio, no aritmética: por eso decidedBy = modelo y el autor tiene la última palabra.
- * - sin pasaje: sin-respaldo.
+ * - sin pasaje: sin-verificar (tampoco se reporta).
  */
 export function reviewNoteTool(deps: ToolDeps) {
   return tool({
@@ -20,7 +20,7 @@ export function reviewNoteTool(deps: ToolDeps) {
     description:
       'Registra la revisión de UN fragmento de los apuntes (p. ej. "notes#3") contra las fuentes. Antes usa research ' +
       'para buscar el punto. Indica el pasaje que trata ese mismo punto y si lo respalda o lo contradice; si ninguna ' +
-      'fuente lo trata, omite passageId. El código calcula el veredicto (confirmado, inconsistente o sin-respaldo). ' +
+      'fuente lo trata, omite passageId. El código calcula el veredicto (confirmado, inconsistente o sin-verificar, que no se reporta). ' +
       'Un apunte confirmado queda registrado como claim citable.',
     inputSchema: z.object({
       fragmentId: z.string().regex(/^[a-z0-9-]+#\d+$/).describe('id del fragmento de read_knowledge, p. ej. "notes#3"'),
@@ -41,7 +41,7 @@ export function reviewNoteTool(deps: ToolDeps) {
       let review: NoteReview;
 
       if (!passageId) {
-        review = { ...base, verdict: 'sin-respaldo', decidedBy: 'modelo', reasons: [explanation] };
+        review = { ...base, verdict: 'sin-verificar', decidedBy: 'modelo', reasons: [explanation] };
       } else {
         const { library } = deps.research;
         const passage = library.passage(passageId);
@@ -78,7 +78,7 @@ export function reviewNoteTool(deps: ToolDeps) {
             review = {
               ...base,
               ...source,
-              verdict: 'sin-respaldo',
+              verdict: 'sin-verificar',
               decidedBy: 'codigo',
               reasons: [`La fuente trata el punto pero no alcanza a respaldarlo. ${check.reasons.join(' ')}`.trim()],
               ...(check.checks.groundingScore !== undefined ? { groundingScore: check.checks.groundingScore } : {}),
@@ -92,7 +92,7 @@ export function reviewNoteTool(deps: ToolDeps) {
       deps.store.save(deps.outputDir, deps.params);
       const stops = deps.notes.stopOn.includes(review.verdict);
       return {
-        ok: review.verdict === 'confirmado',
+        ok: review.verdict !== 'inconsistente',
         fragmentId,
         verdict: review.verdict,
         ...(review.reasons.length ? { reasons: review.reasons } : {}),

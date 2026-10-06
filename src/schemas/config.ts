@@ -47,8 +47,8 @@ export const ConfigSchema = z
     }),
     notesReview: z
       .object({
-        /** Veredictos de la revisión de apuntes que detienen el proceso hasta que el autor corrija sus apuntes. */
-        stopOn: z.array(z.enum(['confirmado', 'inconsistente', 'sin-respaldo'])).default(['inconsistente']),
+        /** Veredictos que detienen el proceso hasta que el autor corrija sus apuntes (solo inconsistente). */
+        stopOn: z.array(z.literal('inconsistente')).default(['inconsistente']),
       })
       .default({ stopOn: ['inconsistente'] }),
     replay: z
@@ -80,6 +80,8 @@ export const ConfigSchema = z
       redirectPort: z.number().int().min(1024).max(65535),
       tokenDir: z.string().min(1),
       timeoutMs: z.number().int().positive().default(60000),
+      /** Slides que van a Canva: 3 (hook, arquitectura y cierre: la demo corta) o all (todas las del deck). */
+      slides: z.union([z.literal(3), z.literal('all')]).default('all'),
       fallbackDeckUrl: z.string().default(''),
     }),
   })

@@ -83,7 +83,10 @@ aws bedrock-runtime converse --profile expo-generator --region us-east-2 \
   --inference-config '{"maxTokens":5}'
 ```
 
-Repite con `mistral.mistral-large-3-675b-instruct`.
+Repite con `us.anthropic.claude-sonnet-4-5-20250929-v1:0` (el modelo principal) y `mistral.mistral-large-3-675b-instruct`.
+
+Con los modelos de Anthropic, la primera llamada acepta su oferta en AWS Marketplace ($0; se paga por token) y llega un correo
+"You accepted an AWS Marketplace offer".
 
 Verificado en fase 0 (us-east-2, rol `ExpoGeneratorDev`), con tool use forzado vía Converse:
 
@@ -91,9 +94,16 @@ Verificado en fase 0 (us-east-2, rol `ExpoGeneratorDev`), con tool use forzado v
 |---|---|
 | Nova 2 Lite | Nova Premier (fin de vida) |
 | Nova Pro | GPT-5.5 (no habilitado en la cuenta) |
-| gpt-oss-120b | Claude (pendiente el formulario de Anthropic) |
+| gpt-oss-120b | Claude (pendiente el formulario de Anthropic; ver abajo) |
 | Mistral Large 3 | |
 | Qwen3 235B | |
 | Llama 4 Maverick | |
 | DeepSeek V3.2 | |
 | Kimi K2.5 | |
+
+Actualizado el 2026-10-05, ya enviado el formulario de Anthropic (llamada mínima por Converse):
+
+| Funciona | No funciona |
+|---|---|
+| Claude Sonnet 4.5 (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`) | Claude Sonnet 5.5 y Sonnet 5 ("not available for this account") |
+| Claude Haiku 4.5 (`us.anthropic.claude-haiku-4-5-20251001-v1:0`) | Claude Sonnet 4.6 ("use case details have not been submitted": puede ser demora en propagarse) |

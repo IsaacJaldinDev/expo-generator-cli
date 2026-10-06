@@ -10,8 +10,11 @@ export interface CanvaDesignInput {
   user_intent: string;
 }
 
+/** Cuántas slides del deck van a Canva: 3 (hook, arquitectura, cierre: la demo corta) o todas. */
+export type CanvaSlides = 3 | 'all';
+
 export interface PickedSlide {
-  role: 'hook' | 'arquitectura' | 'cierre';
+  role: 'hook' | 'arquitectura' | 'desarrollo' | 'cierre';
   sectionId: string;
   slide: Slide;
 }
@@ -26,7 +29,14 @@ const text = (s: Slide) => `${s.title} ${s.purpose} ${s.bullets.join(' ')}`;
  * Elige las 3 slides de la demo en código: la primera del hook, la de arquitectura (la slide de desarrollo que
  * más habla de host/cliente/servidor) y la primera del cierre.
  */
-export function pickCanvaSlides(deck: Deck): PickedSlide[] {
+export function pickCanvaSlides(deck: Deck, slides: CanvaSlides = 3): PickedSlide[] {
+  if (slides === 'all') {
+    const all = deck.sections.flatMap((s) =>
+      s.slides.map((slide): PickedSlide => ({ role: s.kind === 'hook' ? 'hook' : s.kind === 'close' ? 'cierre' : 'desarrollo', sectionId: s.id, slide })),
+    );
+    if (all.length === 0) throw new Error('El deck no tiene slides para generar.');
+    return all;
+  }
   const first = (s?: Section) => (s?.slides[0] ? { sectionId: s.id, slide: s.slides[0] } : undefined);
   const hook = first(deck.sections.find((s) => s.kind === 'hook')) ?? first(deck.sections[0]);
   const close = first(deck.sections.findLast((s) => s.kind === 'close')) ?? first(deck.sections.at(-1));
@@ -47,15 +57,15 @@ export function pickCanvaSlides(deck: Deck): PickedSlide[] {
  * deck.json + brand-guide.yml → input de create-design. Los hex van escritos en el brief: el brand kit de Canva
  * no garantiza colores exactos (y create-design no lo usa).
  */
-export function renderCanvaInput(deck: Deck, brand: BrandGuide): CanvaDesignInput {
-  const picked = pickCanvaSlides(deck);
+export function renderCanvaInput(deck: Deck, brand: BrandGuide, opts: { slides?: CanvaSlides; audience?: string | undefined } = {}): CanvaDesignInput {
+  const picked = pickCanvaSlides(deck, opts.slides);
   const c = brand.colors;
   const brief = [
-    `Presentación de ${picked.length} slides en español para una charla técnica: "${deck.title}".`,
+    `Presentación de ${picked.length} slides en español para una charla: "${deck.title}".${opts.audience ? ` Audiencia: ${opts.audience}.` : ''}`,
     `Paleta OBLIGATORIA con estos hex exactos: fondo ${c.background}; títulos, cifras y acentos ${c.primary}; texto ${c.secondary}.`,
     `No uses otros colores de fondo. El color ${c.primary} solo en títulos y en una palabra de acento por slide, nunca en texto corrido.`,
     `Tipografías: ${brand.fonts.heading} para títulos, ${brand.fonts.body} para el texto.`,
-    brand.mood && !/PLACEHOLDER/.test(brand.mood) ? `Estilo: ${brand.mood}.` : 'Estilo: técnico pero cercano, minimalista, mucho espacio en blanco.',
+    brand.mood && !/PLACEHOLDER/.test(brand.mood) ? `Estilo: ${brand.mood}.` : 'Estilo: claro y cercano, minimalista, mucho espacio en blanco.',
     `Una idea por slide, como máximo ${brand.layout.maxWordsPerSlide} palabras visibles, texto grande legible desde la última fila de un auditorio.`,
   ].join(' ');
   return {
@@ -68,6 +78,6 @@ export function renderCanvaInput(deck: Deck, brand: BrandGuide): CanvaDesignInpu
         ...(slide.bullets.length ? { points: slide.bullets.map(cleanBullet).filter(Boolean) } : {}),
       })),
     },
-    user_intent: 'Generar 3 slides (hook, arquitectura, cierre) de la charla con la línea gráfica exacta del autor',
+    user_intent: `Generar ${picked.length} slides de la charla con la línea gráfica exacta del autor`,
   };
 }

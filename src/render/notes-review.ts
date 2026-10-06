@@ -21,7 +21,7 @@ export function renderNotesReview(
     `${file.reviewedAt.slice(0, 10)} · apuntes: \`${ctx.knowledgeDir}/\` · fuentes: ${ctx.topics.join(', ')}`,
     '',
     `**Resultado:** ✓ ${by('confirmado').length} confirmados · ✗ ${by('inconsistente').length} inconsistentes · ` +
-      `? ${by('sin-respaldo').length} sin respaldo · ${file.own.length} propios (ideas, experiencias u opiniones: no requieren fuente)`,
+      `${file.own.length} propios (ideas, experiencias u opiniones: no requieren fuente)`,
     '',
     file.pending.length
       ? `**La revisión quedó incompleta**: faltan ${file.pending.join(', ')}. Vuelve a correr el acto 2.`
@@ -41,21 +41,6 @@ export function renderNotesReview(
       for (const reason of r.reasons) out.push(`- ${reason}`);
       out.push(`- _${decided(r)}_`, '');
     }
-  }
-
-  const unsupported = by('sin-respaldo');
-  if (unsupported.length) {
-    out.push('## ? Sin respaldo: verifícalo por tu cuenta', '');
-    out.push(
-      'Ninguna fuente permitida los respalda del todo. Si son datos, compruébalos o agrega una fuente en `sources` de tu input; si no, quítalos o reformúlalos como opinión.',
-      '',
-    );
-    for (const r of unsupported) {
-      out.push(`- **${r.fragmentId}** «${r.text}»${r.reasons.length ? ` — ${r.reasons.join(' ')}` : ''}`);
-      if (r.sourceUrl) out.push(`  - Fuente más cercana (${r.sourceTier ?? '?'}): ${r.sourceUrl}`);
-      if (r.passage) out.push(`  - Lo que dice: «${r.passage}»`);
-    }
-    out.push('');
   }
 
   const confirmed = by('confirmado');
@@ -90,8 +75,8 @@ export function renderValidNotes(fragments: KnowledgeFragment[], file: Pick<Note
   const lastHeading = new Map<string, string>();
   for (const f of fragments) {
     const r = byId.get(f.id);
-    // Solo lo que está bien: confirmado por una fuente o propio. Lo marcado y lo no revisado queda fuera.
-    if (r ? r.verdict !== 'confirmado' : !own.has(f.id)) continue;
+    // Todo menos lo inconsistente (y lo que el agente no llegó a cubrir): confirmado, propio o sin verificar.
+    if (r ? r.verdict === 'inconsistente' : !own.has(f.id)) continue;
     const name = fileOf(f.id);
     const lines = files.get(name) ?? [];
     if (f.heading && lastHeading.get(name) !== f.heading) {
@@ -99,7 +84,7 @@ export function renderValidNotes(fragments: KnowledgeFragment[], file: Pick<Note
       lastHeading.set(name, f.heading);
     }
     lines.push(f.text);
-    if (r) lines.push(`<!-- confirmado: ${r.sourceUrl} -->`);
+    if (r?.verdict === 'confirmado') lines.push(`<!-- confirmado: ${r.sourceUrl} -->`);
     lines.push('');
     files.set(name, lines);
   }

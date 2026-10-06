@@ -172,7 +172,7 @@ describe('acto 2: huecos → research → record_claim (por pasaje) → claims.j
       'research',
       1,
     );
-    expect(trace).toEqual(['read_knowledge', 'review_note ✗', 'update_section ✗']);
+    expect(trace).toEqual(['read_knowledge', 'review_note', 'update_section ✗']);
     expect(gate.lastResult?.problems[0]).toContain('Hay 0 claims externos verificados; se necesitan al menos 1');
   });
 
@@ -197,7 +197,7 @@ describe('acto 2: huecos → research → record_claim (por pasaje) → claims.j
   ].join('\n');
   const research = call('research', { claim: 'estándar abierto', query: 'open-source standard connecting AI applications external systems' });
 
-  it('revisión de apuntes: confirmado → claim citable; la fuente no alcanza a respaldarlo → sin-respaldo (no detiene)', async () => {
+  it('revisión de apuntes: confirmado → claim citable; la fuente no alcanza a respaldarlo → sin-verificar (silencioso, no detiene)', async () => {
     const { trace, notes, store, gate, dir } = await run(
       [
         call('read_knowledge'),
@@ -210,8 +210,8 @@ describe('acto 2: huecos → research → record_claim (por pasaje) → claims.j
       1,
       NOTES,
     );
-    expect(trace).toEqual(['read_knowledge', 'research', 'review_note', 'review_note ✗', 'mark_own_notes']);
-    expect(notes.list().map((r) => `${r.fragmentId}:${r.verdict}:${r.decidedBy}`)).toEqual(['notes#1:confirmado:codigo', 'notes#2:sin-respaldo:codigo']);
+    expect(trace).toEqual(['read_knowledge', 'research', 'review_note', 'review_note', 'mark_own_notes']);
+    expect(notes.list().map((r) => `${r.fragmentId}:${r.verdict}:${r.decidedBy}`)).toEqual(['notes#1:confirmado:codigo', 'notes#2:sin-verificar:codigo']);
     expect(notes.list()[1]!.reasons.join(' ')).toContain('no contiene las cifras 90');
     // el confirmado queda como claim externo verificado ligado al apunte (no consume cupo de huecos)
     expect(store.claims).toEqual([expect.objectContaining({ id: 'c-1', verified: true, knowledgeRef: 'notes#1' })]);
@@ -221,16 +221,19 @@ describe('acto 2: huecos → research → record_claim (por pasaje) → claims.j
 
     const md = readFileSync(join(dir, 'output', 'revision-apuntes.md'), 'utf8');
     expect(md).toContain('**Los apuntes pasaron la revisión.**');
-    expect(md).toMatch(/## \? Sin respaldo[\s\S]*notes#2[\s\S]*Fuente más cercana[\s\S]*Lo que dice:/);
+    // lo que ninguna fuente confirma ni contradice no se reporta, pero sigue en tus apuntes
+    expect(md).not.toMatch(/notes#2|Sin respaldo|sin respaldo/);
     expect(md).toMatch(/## ✓ Confirmados[\s\S]*notes#1/);
     const valid = readFileSync(join(dir, 'output', 'apuntes-validos', 'notes.md'), 'utf8');
     expect(valid).toContain('MCP es un estándar de código abierto');
     expect(valid).toContain('<!-- confirmado: https://modelcontextprotocol.io/intro -->');
     expect(valid).toContain('# Ideas\n\nMe encanta enseñar con analogías.');
-    expect(valid).not.toContain('90%');
+    expect(valid).toContain('90%'); // sin-verificar: se conserva, sin comentario de fuente
+    expect(valid).not.toMatch(/confirmado:.*\n.*90%/);
     // listo para pegar: el comentario no crea fragmentos nuevos
     expect(fragmentMarkdown('notes', valid).map((f) => f.text)).toEqual([
       'MCP es un estándar de código abierto para conectar aplicaciones de IA con sistemas externos.',
+      'El 90% de las startups de IA ya usan MCP en producción.',
       'Me encanta enseñar con analogías.',
     ]);
   });
@@ -255,9 +258,9 @@ describe('acto 2: huecos → research → record_claim (por pasaje) → claims.j
       0,
       NOTES,
     );
-    expect(notes.list().map((r) => `${r.fragmentId}:${r.verdict}:${r.decidedBy}`)).toEqual(['notes#1:inconsistente:modelo', 'notes#2:sin-respaldo:modelo']);
+    expect(notes.list().map((r) => `${r.fragmentId}:${r.verdict}:${r.decidedBy}`)).toEqual(['notes#1:inconsistente:modelo', 'notes#2:sin-verificar:modelo']);
     expect(notes.list()[0]).toMatchObject({ reasons: ['La fuente dice que es propietario.'], passage: expect.stringContaining('open-source standard') });
-    // sin-respaldo no detiene por defecto (config notesReview.stopOn), inconsistente sí;
+    // sin-verificar no detiene ni se reporta; inconsistente sí;
     // con un apunte inconsistente la compuerta deja terminar la etapa aunque falten claims: le toca al autor
     expect(notes.blocking().map((r) => r.fragmentId)).toEqual(['notes#1']);
     expect(gate.lastResult?.ok).toBe(true);
@@ -282,11 +285,11 @@ describe('notesGate: el acto 3 solo escribe sobre apuntes revisados', () => {
     expect(notesGate(fragments, dir, ['inconsistente'])).toMatchObject({ ok: false, reason: expect.stringContaining('cambiaron') });
     write(dir, [review('inconsistente')]);
     expect(notesGate(fragments, dir, ['inconsistente'])).toMatchObject({ ok: false, reason: expect.stringContaining('notes#1') });
-    write(dir, [review('sin-respaldo')]);
+    write(dir, [review('sin-verificar')]);
     expect(notesGate(fragments, dir, ['inconsistente']).ok).toBe(true);
     writeFileSync(join(dir, 'notes-review.json'), JSON.stringify({ knowledgeHash: knowledgeHash(fragments), reviewedAt: 'x', reviews: [], pending: ['notes#1'] }));
     expect(notesGate(fragments, dir, ['inconsistente'])).toMatchObject({ ok: false, reason: expect.stringContaining('incompleta') });
-    write(dir, [review('sin-respaldo')]);
-    expect(notesGate(fragments, dir, ['inconsistente', 'sin-respaldo']).ok).toBe(false);
+    write(dir, [review('sin-verificar')]);
+    expect(notesGate(fragments, dir, ['inconsistente']).ok).toBe(true);
   });
 });

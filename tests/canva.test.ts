@@ -36,6 +36,25 @@ describe('render: deck.json + brand-guide.yml → create-design', () => {
     expect(JSON.stringify(input)).not.toContain('[^');
   });
 
+  it('canva.slides = all: todas las slides del deck, en orden, con su rol', () => {
+    const all = pickCanvaSlides(deck, 'all');
+    expect(all.map((p) => `${p.role}:${p.slide.id}`)).toEqual([
+      'hook:hook-1',
+      'desarrollo:que-es-1',
+      'desarrollo:que-es-2',
+      'desarrollo:como-1',
+      'cierre:cierre-1',
+      'cierre:cierre-2',
+    ]);
+    const input = renderCanvaInput(deck, loadBrandGuide(), { slides: 'all', audience: 'Estudiantes de secundaria' });
+    expect(input.outline.sections).toHaveLength(6);
+    expect(input.brief).toContain('Presentación de 6 slides');
+    expect(input.brief).toContain('Audiencia: Estudiantes de secundaria');
+    expect(input.brief).not.toContain('técnica');
+    expect(input.user_intent).toContain('6 slides');
+    expect(() => pickCanvaSlides({ title: 't', sections: [] }, 'all')).toThrow(/no tiene slides/);
+  });
+
   it('cleanBullet', () => {
     expect(['- a', '• b', '* c', '3) d', '10. e', 'f[^c-1]'].map(cleanBullet)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
   });

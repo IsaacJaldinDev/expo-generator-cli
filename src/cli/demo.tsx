@@ -138,7 +138,7 @@ switch (act) {
       process.exitCode = 1;
       break;
     }
-    const input = renderCanvaInput(store.deck, brand);
+    const input = renderCanvaInput(store.deck, brand, { slides: cfg.canva.slides, audience: expo.brief.audience });
     let result: CanvaResult | undefined;
     const app = render(
       <CanvaApp

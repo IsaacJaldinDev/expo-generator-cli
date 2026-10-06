@@ -47,9 +47,9 @@ if (out.error) console.error(styleText('red', `\n✗ ${out.error}`));
 
 const reviews = session.notes.list();
 if (reviews.length) {
-  const mark = { confirmado: styleText('green', '✓'), inconsistente: styleText('red', '✗'), 'sin-respaldo': styleText('yellow', '?') };
+  const mark = { confirmado: styleText('green', '✓'), inconsistente: styleText('red', '✗') };
   console.log(styleText('bold', '\nTus apuntes vs. las fuentes:'));
-  for (const r of reviews) console.log(`  ${mark[r.verdict]} ${r.fragmentId} ${r.verdict}: ${r.text}`);
+  for (const r of reviews.filter((x) => x.verdict !== 'sin-verificar')) console.log(`  ${mark[r.verdict as 'confirmado' | 'inconsistente']} ${r.fragmentId} ${r.verdict}: ${r.text}`);
   const blocking = session.notes.blocking().length;
   if (blocking) console.log(styleText(['red', 'bold'], `  ✗ El proceso se detuvo: ${blocking} apunte(s) por corregir → ${session.expo.outputDir}/revision-apuntes.md`));
 }

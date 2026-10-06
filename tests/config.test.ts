@@ -9,8 +9,18 @@ const raw = () => parse(readFileSync('config/config.yml', 'utf8'));
 describe('config.yml', () => {
   it('el config versionado es válido', () => {
     const cfg = loadConfig('config/config.yml', {});
-    expect(activeModel(cfg).modelId).toMatch(/mistral/);
+    expect(activeModel(cfg).modelId).toMatch(/claude-sonnet-4-5/);
     expect(cfg.canva.tokenDir.startsWith('~')).toBe(false);
+  });
+
+  it('canva.slides: all por defecto; 3 es la demo corta; otro valor se rechaza', () => {
+    const r = raw();
+    delete r.canva.slides;
+    expect(parseConfig(r, {}).canva.slides).toBe('all');
+    r.canva.slides = 3;
+    expect(parseConfig(r, {}).canva.slides).toBe(3);
+    r.canva.slides = 5;
+    expect(() => parseConfig(r, {})).toThrow();
   });
 
   it('cambiar de modelo es una sola línea', () => {

@@ -149,6 +149,14 @@ describe('paneles', () => {
     expect(out).toContain('output/expo-de-s3/');
   });
 
+  it('brief: avisa si la paleta es poco legible (WCAG) y no avisa si lo es', () => {
+    const neon = { ...loadBrandGuide(), colors: { background: '#00F0B5', primary: '#F61067', secondary: '#5E239D' } };
+    const bad = strip(renderToString(<BriefView expo={expo({ brand: neon })} fragments={[]} />, { columns: 140 }));
+    expect(bad).toMatch(/Títulos \(#F61067\).*contraste 2\.72:1/);
+    expect(bad).not.toMatch(/Texto \(#5E239D\)/); // 6.41:1 pasa
+    expect(strip(renderToString(<BriefView expo={expo()} fragments={[]} />, { columns: 140 }))).not.toContain('contraste');
+  });
+
   it('brief: marca los datos de los apuntes que parecen externos', () => {
     const out = strip(
       renderToString(
@@ -167,13 +175,13 @@ describe('paneles', () => {
     expect(out).not.toContain('⚠ notes#1');
   });
 
-  it('apuntes vs. fuentes: ✓/✗/? y, si se detiene, dónde está el resumen', () => {
-    const r = (fragmentId: string, verdict: 'confirmado' | 'inconsistente' | 'sin-respaldo', text: string) => ({ fragmentId, verdict, text, decidedBy: 'codigo' as const, reasons: [] });
-    const reviews = [r('notes#1', 'confirmado', 'MCP es un estándar abierto.'), r('notes#10', 'inconsistente', 'El 90% de las startups…'), r('notes#4', 'sin-respaldo', 'Algo')];
+  it('apuntes vs. fuentes: ✓/✗ (sin-verificar no se muestra) y, si se detiene, dónde está el resumen', () => {
+    const r = (fragmentId: string, verdict: 'confirmado' | 'inconsistente' | 'sin-verificar', text: string) => ({ fragmentId, verdict, text, decidedBy: 'codigo' as const, reasons: [] });
+    const reviews = [r('notes#1', 'confirmado', 'MCP es un estándar abierto.'), r('notes#10', 'inconsistente', 'El 90% de las startups…'), r('notes#4', 'sin-verificar', 'Algo')];
     const out = strip(renderToString(<NotesReviewTable reviews={reviews} blocking={1} reportPath="output/ejemplo/revision-apuntes.md" />, { columns: 120 }));
     expect(out).toMatch(/✓\s+notes#1\s+confirmado/);
     expect(out).toMatch(/✗\s+notes#10\s+inconsistente/);
-    expect(out).toMatch(/\?\s+notes#4\s+sin-respaldo/);
+    expect(out).not.toContain('notes#4');
     expect(out).toContain('El proceso se detuvo: 1 apunte(s) por corregir');
     expect(out).toContain('output/ejemplo/revision-apuntes.md');
     expect(strip(renderToString(<NotesReviewTable reviews={reviews.slice(0, 1)} blocking={0} reportPath="x" />, { columns: 120 }))).not.toContain('se detuvo');

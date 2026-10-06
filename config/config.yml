@@ -8,11 +8,11 @@ aws:
 expo:
   # Exposición activa: input/<active>.json (apuntes en knowledge/<active>/, salida en output/<active>/).
   # `--expo=<nombre>` la sobreescribe en cada comando.
-  active: ejemplo
+  active: clorofila
 
 model:
-  # Cambio de modelo en vivo (Acto 5): edita SOLO esta línea → mistral | nova
-  active: mistral
+  # Cambio de modelo en vivo (Acto 5): edita SOLO esta línea → claude45 | mistral | nova | claude (Sonnet 5.5, bloqueado)
+  active: claude45
   options:
     nova:
       modelId: us.amazon.nova-2-lite-v1:0
@@ -30,14 +30,24 @@ model:
       temperature: 0.3
       # NO VERIFICADO: confirmar en https://aws.amazon.com/bedrock/pricing/ (us-east-2)
       pricing: { input: 0.5, output: 1.5 }
-    # Claude queda disponible si completas el formulario de caso de uso de Anthropic en la consola.
+    # Claude Sonnet 4.5: el mejor Sonnet habilitado hoy en la cuenta (verificado el 2026-10-05).
+    claude45:
+      modelId: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+      promptCache: auto # el SDK inserta los cache points (solo modelos claude/anthropic)
+      maxTokens: 4096
+      temperature: 0.3
+      # NO VERIFICADO (precio de lista de Anthropic; el rol no tiene pricing:GetProducts):
+      # confirmar en https://aws.amazon.com/bedrock/pricing/ (us-east-2)
+      pricing: { input: 3.0, output: 15.0, cacheRead: 0.3, cacheWrite: 3.75 }
+    # Claude Sonnet 5.5: el pedido del autor. Hoy Bedrock responde AccessDenied
+    # ("not available for this account"), igual que Sonnet 5. Cuando se habilite: model.active: claude
     claude:
       modelId: us.anthropic.claude-sonnet-5-5
-      promptCache: auto # el SDK inserta los cache points
+      promptCache: auto
       maxTokens: 4096
       temperature: 0.3
       # NO VERIFICADO
-      pricing: { input: 2.0, output: 10.0, cacheRead: 0.2, cacheWrite: 2.5 }
+      pricing: { input: 3.0, output: 15.0, cacheRead: 0.3, cacheWrite: 3.75 }
 
 guardrail:
   enabled: true # actívalo cuando exista el guardrail en tu cuenta
@@ -54,8 +64,9 @@ critic:
   maxCalls: 2 # llamadas a critique_voice por ejecución
 
 notesReview:
-  # Acto 2: tus apuntes se contrastan con las fuentes. Estos veredictos detienen el proceso hasta que los corrijas
-  # (resumen en output/<expo>/revision-apuntes.md). Agrega sin-respaldo para exigir fuente a todo dato.
+  # Acto 2: tus apuntes se contrastan con las fuentes. Un apunte inconsistente (la fuente dice otra cosa) detiene el
+  # proceso hasta que lo corrijas (resumen en output/<expo>/revision-apuntes.md). Lo que ninguna fuente confirma ni
+  # contradice no se reporta.
   stopOn: [inconsistente]
 
 replay:
@@ -86,5 +97,7 @@ canva:
   redirectPort: 33418
   # Tokens OAuth: fuera del repo, permisos 0600
   tokenDir: ~/.config/expo-generator/canva
-  timeoutMs: 180000 # create-design tarda ~45 s; el timeout cubre consultas lentas sin cortar en vivo
+  timeoutMs: 180000 # create-design tarda ~45 s con 3 slides (con todas: sin medir); el timeout cubre consultas lentas
+  # Slides que van a Canva: all = todas las del deck | 3 = hook, arquitectura y cierre (demo corta)
+  slides: all
   fallbackDeckUrl: "" # URL del deck pregenerado de 35 minutos

@@ -1,5 +1,6 @@
 import { Box, Text, useAnimation, useWindowSize } from 'ink';
 import type { UsageTotals } from '../../agent/events.ts';
+import { contrastWarnings } from '../../schemas/brand.ts';
 import type { Expo } from '../../schemas/expo.ts';
 import type { NoteReview } from '../../schemas/notes-review.ts';
 import { unverifiedReason, type Claim } from '../../schemas/claims.ts';
@@ -184,16 +185,17 @@ export function ClaimsTable({ claims }: { claims: Claim[] }) {
 const VERDICT = {
   confirmado: { mark: '✓', color: 'green' },
   inconsistente: { mark: '✗', color: 'red' },
-  'sin-respaldo': { mark: '?', color: 'yellow' },
 } as const;
 
 /** Acto 2: cada apunte revisado contra las fuentes. Si alguno detiene el proceso, dónde está el resumen. */
 export function NotesReviewTable({ reviews, blocking, reportPath }: { reviews: NoteReview[]; blocking: number; reportPath: string }) {
-  if (reviews.length === 0) return null;
+  // sin-verificar no se muestra: lo que ninguna fuente confirma ni contradice no se reporta.
+  const shown = reviews.filter((r): r is NoteReview & { verdict: keyof typeof VERDICT } => r.verdict !== 'sin-verificar');
+  if (shown.length === 0 && blocking === 0) return null;
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text bold>tus apuntes vs. las fuentes</Text>
-      {reviews.map((r) => (
+      {shown.map((r) => (
         <Box key={r.fragmentId}>
           <Box width={3}>
             <Text color={VERDICT[r.verdict].color}>{VERDICT[r.verdict].mark}</Text>
@@ -365,6 +367,9 @@ export function BriefView({ expo, fragments }: { expo: Expo; fragments: Knowledg
         <Text dimColor>{`visual    ${expo.brandOverridden ? `config/brand-guide.yml + ajustes de ${expo.inputPath}` : 'config/brand-guide.yml'}`}</Text>
         <Text dimColor>{`salida    ${expo.outputDir}/`}</Text>
       </Box>
+      {contrastWarnings(expo.brand).map((w) => (
+        <Text key={w} color="yellow">{`⚠ ${w}`}</Text>
+      ))}
       {suspicious.length > 0 && (
         <Box marginTop={1} flexDirection="column">
           <Text bold color="yellow">Datos en los apuntes que parecen externos (sin fuente):</Text>

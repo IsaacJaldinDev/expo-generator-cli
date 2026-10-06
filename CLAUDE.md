@@ -20,8 +20,14 @@ obligación de revisar su propio trabajo.** Prioridad: confiabilidad en vivo > c
 - Máximo **2 rondas de revisión** (`agent.maxRevisionRounds`); structured output con **1 reintento**
   (`agent.structuredOutputRetries`) y luego error claro. Nunca loops en escenario.
 - Modelo en config, nunca hardcodeado. Cambio en vivo con **una línea**: `model.active` en `config/config.yml`.
-  Principal: **Mistral Large 3** (más estable en el flujo completo, fase 2); alternativa del Acto 5: **Nova 2 Lite** (`us.amazon.nova-2-lite-v1:0`).
-  Claude no se usa: la cuenta no completó el formulario de caso de uso de Anthropic (decisión del autor, fase 0).
+  Principal: **Claude Sonnet 4.5** (`claude45`, `us.anthropic.claude-sonnet-4-5-20250929-v1:0`, `promptCache: auto`).
+  Decisión del autor (fase 6b), después de completar el formulario de Anthropic. Aún sin medir en el flujo completo.
+  Alternativas del Acto 5: **Mistral Large 3**, que fue la principal en las fases 2–6, y **Nova 2 Lite** (`us.amazon.nova-2-lite-v1:0`).
+  Estado de Claude en la cuenta (2026-10-05):
+  - Sonnet 4.5 y Haiku 4.5 responden. La primera invocación aceptó su oferta de $0 en AWS Marketplace.
+  - Sonnet 5.5 y 5 dan "not available for this account" (`claude` en config queda listo para cuando se habiliten).
+  - Sonnet 4.6 pide el formulario de caso de uso.
+  - El rol no tiene `pricing:GetProducts`: los precios de Claude en config son los de lista, sin verificar.
 - Precios en config, no en código. Al final de cada ejecución: tokens in/out y costo estimado USD.
 - Credenciales: solo perfil local (`aws.profile`, sobreescribible con `AWS_PROFILE`). Tokens OAuth de Canva en
   `canva.tokenDir` (fuera del repo, 0600). Nunca credenciales en el repo.
@@ -74,9 +80,9 @@ obligación de revisar su propio trabajo.** Prioridad: confiabilidad en vivo > c
   | Caso | Veredicto | Decide |
   |---|---|---|
   | `supports` + verificación OK (cita, cifras, grounding; `verifyAgainstPassage`, compartido con `record_claim`) | confirmado | código |
-  | `supports` + verificación fallida | sin-respaldo | código |
+  | `supports` + verificación fallida | sin-verificar (silencioso) | código |
   | `contradicts` | inconsistente | modelo |
-  | sin pasaje | sin-respaldo | modelo |
+  | sin pasaje | sin-verificar (silencioso) | modelo |
 
   - Confirmado: además se registra un claim externo con `knowledgeRef`; no ocupa cupo de `maxExternalClaims`.
   - `supports` fallido no es inconsistente: en real, apuntes correctos quedaban con grounding 0.68–0.71 contra fuentes en inglés.
@@ -89,12 +95,13 @@ obligación de revisar su propio trabajo.** Prioridad: confiabilidad en vivo > c
   - Las ediciones (acto 4) no pasan por la compuerta.
 - **Salida en `output/<expo>/`:**
   - `notes-review.json`: el contrato.
-  - `revision-apuntes.md`: el resumen. Primero inconsistencias (con el pasaje), después sin respaldo y confirmados.
-  - `apuntes-validos/<archivo>.md`: solo confirmados + propios, con el mismo formato y la fuente como `<!-- -->`
+  - `revision-apuntes.md`: el resumen. Primero inconsistencias (con el pasaje), después confirmados. `sin-verificar` no se reporta.
+  - `apuntes-validos/<archivo>.md`: todo menos lo inconsistente (confirmados, propios y sin verificar), con el mismo formato y la fuente como `<!-- -->`
     (read_knowledge ignora esas líneas). Listo para copiar a `knowledge/<expo>/` y agregar las correcciones.
 - Medido en real (Mistral, ejemplo de MCP): 50–60 s, ~$0.04–0.07.
   - En otra prueba, con 2 apuntes falsos ("XML-RPC", "no existe el host"), el modelo detectó los dos en 21 s.
-  - El dato sembrado del 90% sale a veces `inconsistente` y a veces `sin-respaldo`: depende de cómo lo etiquete el modelo.
+  - El dato sembrado del 90% sale a veces `inconsistente` (detiene) y a veces `sin-verificar` (pasa en silencio): depende de cómo lo etiquete el modelo.
+  - Decisión del autor (2026-10-06): se quitó el veredicto visible `sin-respaldo`; `notesReview.stopOn` solo admite `inconsistente`.
 - Visto en real: Mistral a veces emite JSON inválido en `toolUse` (`ModelError: unable to parse tool input JSON`) y
   la ejecución se corta. Candidato a reintento en la fase 7.
 
@@ -127,6 +134,9 @@ Por eso:
 
 ## Canva MCP (fase 6)
 
+- Paleta: los hex llegan a Canva como texto del brief (`create-design` no aplica brand kit ni garantiza colores).
+  El Acto 1 avisa si la paleta es poco legible (WCAG: títulos ≥3:1, texto ≥4.5:1; `contrastWarnings` en `src/schemas/brand.ts`).
+
 `https://mcp.canva.com/mcp`, Streamable HTTP, OAuth 2.1 + PKCE con registro dinámico de cliente. `src/canva/oauth.ts`
 implementa `OAuthClientProvider` con callback en `127.0.0.1:${canva.redirectPort}`. Los tokens se refrescan solos.
 
@@ -134,7 +144,10 @@ implementa `OAuthClientProvider` con callback en `127.0.0.1:${canva.redirectPort
   `polling_policy.wait_seconds`) → `get-design-pages` (verifica que salieron 3 slides). `generate-design` y
   `create-design-from-candidate` son LEGACY según la propia descripción de Canva y no se usan.
 - **`src/render/canva.ts` (código):**
-  - Elige las 3 slides: hook, la de arquitectura (la slide de desarrollo que más habla de host/cliente/servidor) y cierre.
+  - `canva.slides` (config): `all` (default desde fase 6b: todas las slides del deck) o `3` (demo corta: hook, la de
+    arquitectura —la slide de desarrollo que más habla de host/cliente/servidor, heurística pensada para MCP— y cierre).
+    Con `all` el tiempo de generación está **sin medir** (con 3 son ~45–50 s; `canva.timeoutMs` es 180 s).
+  - El brief a Canva usa título y `audience` de la exposición; no asume "charla técnica".
   - Escribe en el brief los hex de `brand-guide.yml`, las fuentes y el mood. Limpia viñetas y marcadores.
   - Verificado mirando las miniaturas: Canva respeta fondo `#F6F7EB`, títulos y acentos `#E94F37`, texto `#393E41`.
 - **`src/canva/generate.ts`:**
@@ -255,6 +268,7 @@ Nova 2 Lite no converge si se le pide aritmética o disciplina solo por prompt. 
 - Node 24 LTS (`.nvmrc`); npm (sin corepack/pnpm: un punto de fallo menos el día de la charla).
 - Todos los comandos aceptan `--expo=<nombre>` (por defecto `expo.active`).
 - `npm run demo -- <acto>` (la demo) · `npm run agent [-- --fresh | --act=research|deck | "instrucción" | --scope=a,b | --no-guardrail]` (consola, desarrollo) → `output/<expo>/deck.json`, `claims.json`, `script.md`, `timing.md`
+- Prueba end to end paso a paso: `docs/e2e.md`.
 - `npm run typecheck` · `npm test` · `npm run spike:agent [-- --guardrail]` · `npm run spike:guardrail` · `npm run spike:canva [-- --reset]`
 - Tests sin AWS: `src/replay/scripted-model.ts` reproduce turnos guionizados por el loop real de Strands
   (base del modo `--replay` de la fase 7).

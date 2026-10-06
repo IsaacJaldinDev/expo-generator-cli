@@ -26,12 +26,12 @@ export function Palette({ brand }: { brand: BrandGuide }) {
 }
 
 export function OutlineView({ input }: { input: CanvaDesignInput }) {
-  const roles = ['hook', 'arquitectura', 'cierre'];
+  const roles = input.outline.sections.length === 3 ? ['hook', 'arquitectura', 'cierre'] : [];
   return (
     <Box flexDirection="column" marginY={1}>
       {input.outline.sections.map((s, i) => (
         <Text key={i}>
-          <Text dimColor>{`${i + 1}. ${(roles[i] ?? '').padEnd(13)}`}</Text>
+          <Text dimColor>{`${i + 1}. ${roles[i] ? roles[i]!.padEnd(13) : ''}`}</Text>
           <Text bold>{s.title}</Text>
           {s.points?.length ? <Text dimColor>{`  · ${s.points.join(' · ')}`}</Text> : null}
         </Text>
@@ -40,7 +40,7 @@ export function OutlineView({ input }: { input: CanvaDesignInput }) {
   );
 }
 
-/** Acto 7: deck.json + brand-guide.yml → 3 slides en Canva vía MCP. */
+/** Acto 7: deck.json + guía visual → slides en Canva vía MCP. */
 export function CanvaApp(props: {
   brand: BrandGuide;
   input: CanvaDesignInput;
